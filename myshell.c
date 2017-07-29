@@ -118,7 +118,8 @@ int shell_cd(char** args)
 
 int shell_help(char** args)
 {
-    external_cmd("more README.md");
+    char* cmd[] = {"more", "README.md"};
+    external_cmd(cmd);
 }
 
 int shell_exit(char** args)
