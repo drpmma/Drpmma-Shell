@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/wait.h>
+#include <time.h>
 #include "myshell.h"
 
 int main(void)
@@ -114,6 +115,21 @@ int shell_cd(char** args)
         if(chdir(args[1]) != 0)
             perror("myshell");
     }
+}
+
+int shell_time(char** args)
+{
+    time_t now;
+    struct tm* time_now;
+    time(&now);
+    time_now = localtime(&now);
+    printf("%s", asctime(time_now));
+    return 1;
+}
+
+int shell_umask(char** args)
+{
+    return 1;
 }
 
 int shell_help(char** args)
