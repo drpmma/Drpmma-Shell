@@ -7,19 +7,25 @@
 
 int main(void)
 {
-    sh_loop();
+    main_loop();                          // 主循环
 }
 
-void sh_loop()
+void main_loop()
 {
     char* line;
     char** args;
     int status = 1;
+    char *file_path;
+    
     while(status)
     {
-        printf("myshell>");
+        file_path=(char *)malloc(FILE_PATH_LENGTH);
+        getcwd(file_path, FILE_PATH_LENGTH);
+
+        printf("myshell:%s>", file_path);
         line = read_line();
         args = split_line(line);
+        status = execute(args);
     }
 }
 
@@ -27,7 +33,7 @@ char* read_line()
 {
     char *line = NULL;
     ssize_t bufsize = 0;
-    getline(&line, &bufsize, stdin);
+    getline(&line, &bufsize, stdin);            // 通过getline函数可以方便的读入一行
     return line;
 }
 
@@ -57,5 +63,65 @@ char** split_line(char* line)
 
 int execute(char** args)
 {
+    if(args[0] == NULL)
+        return 1;
+    
+    for (int i = 0; i < sizeof(internal_str) / sizeof(char*); i++) 
+    {
+        if (strcmp(args[0], internal_str[i]) == 0) 
+        {
+            return (*internal_cmd[i])(args);
+        }
+    }
 
+    return external_cmd(args);
+}
+
+int external_cmd(char** args)
+{
+    pid_t pid, w_pid;
+    int status;
+    pid = fork();
+    if(pid < 0)
+    {
+        perror("myshell");
+    }
+    else if(pid == 0)
+    {
+        if(execvp(args[0], args) == -1)
+        {
+            perror("myshell");
+        }
+        exit(1);
+    }
+    else
+    {
+        do {
+            w_pid = waitpid(pid, &status, WUNTRACED);
+        } while (!WIFEXITED(status) && !WIFSIGNALED(status));
+    }
+    return 1;
+}
+
+int shell_cd(char** args)
+{
+    if(args[1] == NULL)
+    {
+        chdir(getenv("HOME"));
+    }
+    else
+    {
+        if(chdir(args[1]) != 0)
+            perror("myshell");
+    }
+}
+
+int shell_help(char** args)
+{
+    external_cmd("more README.md");
+}
+
+int shell_exit(char** args)
+{
+    return 0;
 }
