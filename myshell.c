@@ -6,6 +6,9 @@
 #include <time.h>
 #include "myshell.h"
 
+#include <sys/stat.h>  
+#include <sys/types.h>  
+
 int main(void)
 {
     main_loop();                          // 主循环
@@ -129,6 +132,19 @@ int shell_time(char** args)
 
 int shell_umask(char** args)
 {
+    mode_t new_umask = 0666, old_umask;
+    old_umask = umask(new_umask);
+    if(args[1] == NULL)
+    {
+        printf("%04o\n", old_umask);
+        umask(old_umask);
+    }
+    else
+    {
+        new_umask = strtoul(args[1], 0, 8);
+        printf("%04o\n", new_umask);
+        umask(new_umask);
+    }
     return 1;
 }
 
