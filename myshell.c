@@ -20,10 +20,14 @@ void main_loop()
     char** args;
     int status = 1;
     char *file_path;
+
+    file_path=(char *)malloc(FILE_PATH_LENGTH);
+    getcwd(file_path, FILE_PATH_LENGTH);
+    file_path=strcat(file_path, "/myshell");
+    setenv("MYSHELL", file_path, 0);
     
     while(status)
     {
-        file_path=(char *)malloc(FILE_PATH_LENGTH);
         getcwd(file_path, FILE_PATH_LENGTH);
 
         printf("myshell:%s>", file_path);
@@ -43,7 +47,7 @@ char* read_line()
 
 char** split_line(char* line)
 {
-    int buf_size = 64, pos = 0;
+    int buf_size = ARGUMENT_SIZE, pos = 0;
     char* arg;
     char** args = malloc(buf_size * sizeof(char*));
 
@@ -55,7 +59,7 @@ char** split_line(char* line)
 
         if(pos >= buf_size)
         {
-            buf_size += buf_size;
+            buf_size += ARGUMENT_SIZE;
             args = realloc(args, buf_size * sizeof(char*));
         }
 
@@ -144,6 +148,42 @@ int shell_umask(char** args)
         new_umask = strtoul(args[1], 0, 8);
         printf("%04o\n", new_umask);
         umask(new_umask);
+    }
+    return 1;
+}
+
+int shell_environ(char** args)
+{
+    int i = 0;
+    for(i = 0; environ[i] != NULL; i++)
+    {
+        printf("%s\n",environ[i]);
+    }
+    return 1;
+}
+
+int shell_set(char** args)
+{
+    if(args[1] == NULL)
+    {
+        shell_environ(args);
+    }
+    else if(args[2] == NULL)
+    {
+        setenv(args[1], "NULL", 0);
+    }
+    else
+    {
+        setenv(args[1], args[2], 0);
+    }
+    return 1;
+}
+
+int shell_unset(char** args)
+{
+    if(args[1] != NULL)
+    {
+        unsetenv(args[1]);
     }
     return 1;
 }
