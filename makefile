@@ -4,4 +4,4 @@ myshell: ${OBJS}
 myshell.o: myshell.c
 
 clean:
-	rm-f *.o
+	rm -f *.o

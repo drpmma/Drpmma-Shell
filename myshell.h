@@ -10,6 +10,7 @@ char* internal_str[] = {
     "environ",
     "set",
     "unset",
+    "exec",
     "help",
     "exit"
 };
@@ -19,6 +20,7 @@ int shell_time(char** args);
 int shell_environ(char** args);
 int shell_set(char** args);
 int shell_unset(char** args);
+int shell_exec(char** args);
 int shell_help(char** args);
 int shell_exit(char** args);
 int (*internal_cmd[]) (char **) = {
@@ -28,6 +30,7 @@ int (*internal_cmd[]) (char **) = {
     &shell_environ,
     &shell_set,
     &shell_unset,
+    &shell_exec,
     &shell_help,
     &shell_exit
 };
@@ -35,5 +38,6 @@ int (*internal_cmd[]) (char **) = {
 void main_loop();
 char* read_line();
 char** split_line(char* line);
+int parse_redirect();
+int parse_pipe();
 int execute(char** args);
-int external_cmd(char** args);
