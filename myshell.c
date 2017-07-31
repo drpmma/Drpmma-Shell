@@ -122,6 +122,7 @@ int shell_cd(char** args)
         if(chdir(args[1]) != 0)
             perror("myshell");
     }
+    return 1;
 }
 
 int shell_time(char** args)
@@ -192,6 +193,7 @@ int shell_help(char** args)
 {
     char* cmd[] = {"more", "README.md"};
     external_cmd(cmd);
+    return 1;
 }
 
 int shell_exit(char** args)
