@@ -27,12 +27,19 @@ void main_loop()
     file_path=strcat(file_path, "/myshell");
     setenv("MYSHELL", file_path, 0);
 
+    // char ** a = malloc(100);
+    // a[0] = "ls";
+    // char ** b = malloc(100);
+    // b[0] = "grep";
+    // b[1] = "m";
+    // parse_pipe(a, b);
     while(status)
     {
         getcwd(file_path, FILE_PATH_LENGTH);
         printf("myshell:%s>", file_path);
+        
         line = read_line();
-        args = split_line(line);
+        args = split_command(line);
         status = execute(args);
     }
 }
@@ -45,13 +52,41 @@ char* read_line()
     return line;
 }
 
-char** split_line(char* line)
+int parse_pipe(char** cmd1, char** cmd2)
+{
+    int fd[2];
+
+    pipe(fd);
+
+    if (!fork()) {
+
+        // close STD_OUT
+        close(1);
+        // make STD_OUT same as fd[1]
+        dup(fd[1]);
+        // we don't need this
+        close(fd[0]);
+        execute(cmd1);
+
+    } else {
+
+        // close STD_IN
+        close(0);
+        // make STD_IN same as fd[0]
+        dup(fd[0]);
+        // we don't need this
+        close(fd[1]);
+        execute(cmd2);
+    }
+}
+
+char** split_command(char* cmd)
 {
     int buf_size = ARGUMENT_SIZE, pos = 0;
     char* arg;
     char** args = malloc(buf_size * sizeof(char*));
 
-    arg = strtok(line, " \t\n");
+    arg = strtok(cmd, " \t\n");
     while(arg != NULL)
     {
         args[pos] = arg;
@@ -66,6 +101,10 @@ char** split_line(char* line)
         arg = strtok(NULL, " \t\n");
     }
     args[pos] = NULL;
+    for(int i = 0; args[i] != NULL; i++)
+    {
+        printf("%s\n", args[i]);
+    }
     return args;
 }
 
@@ -81,7 +120,7 @@ int execute(char** args)
             return !((*internal_cmd[i])(args));
         }
     }
-    
+
     pid_t pid, w_pid;
     int ret, status;
 
@@ -114,7 +153,7 @@ int execute(char** args)
 
         status = WEXITSTATUS(ret);
     }
-    return !status;
+    return 1;
 }
 
 int shell_cd(char** args)

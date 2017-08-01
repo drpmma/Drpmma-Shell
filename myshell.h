@@ -37,7 +37,8 @@ int (*internal_cmd[]) (char **) = {
 
 void main_loop();
 char* read_line();
-char** split_line(char* line);
+char** parse_line();
+char** split_command(char* line);
 int parse_redirect();
 int parse_pipe();
 int execute(char** args);
