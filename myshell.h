@@ -1,12 +1,29 @@
+#ifndef _MYSHELL_H
+#define _MYSHELL_H
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <signal.h>
+#include <sys/wait.h>
+#include <sys/stat.h>  
+#include <sys/types.h>  
+#include <time.h>
+#include <fcntl.h>
+#include <errno.h>
+#include "job_ctrl.h"
+
 #define FILE_PATH_LENGTH 100
+#define COMMAND_NUMBER 20
 #define COMMAND_SIZE 64
 #define ARGUMENT_SIZE 32
 
 extern char** environ;
 
 struct command{
-    char **args;
-    int num;
+    char** args;
+    int mode;
 };
 
 char* internal_str[] = {
@@ -44,6 +61,9 @@ int (*internal_cmd[]) (char **) = {
 void main_loop();
 char* read_line();
 char** split_str(char* line, int size, char* delims);
-int parse_redirect();
-int parse_pipe(char** cmd1, char** cmd2);
-int execute(char** args);
+int parse_redirect(char** args, int* pfd_in, int* pfd_out);
+int parse_pipe(struct command* cmd_array, int size);
+int builtin_cmd(char** args);
+int execute(struct command cmd, int fd_in, int fd_out, int fd_err);
+
+#endif
