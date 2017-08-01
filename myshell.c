@@ -37,9 +37,9 @@ void main_loop()
     {
         getcwd(file_path, FILE_PATH_LENGTH);
         printf("myshell:%s>", file_path);
-        
+
         line = read_line();
-        args = split_command(line);
+        args = split_str(line, ARGUMENT_SIZE, " \t\n");
         status = execute(args);
     }
 }
@@ -51,6 +51,7 @@ char* read_line()
     getline(&line, &bufsize, stdin);            // 通过getline函数可以方便的读入一行
     return line;
 }
+
 
 int parse_pipe(char** cmd1, char** cmd2)
 {
@@ -80,13 +81,13 @@ int parse_pipe(char** cmd1, char** cmd2)
     }
 }
 
-char** split_command(char* cmd)
+char** split_str(char* line, int size, char* delims)
 {
-    int buf_size = ARGUMENT_SIZE, pos = 0;
+    int buf_size = size, pos = 0;
     char* arg;
-    char** args = malloc(buf_size * sizeof(char*));
+    char** args = malloc(size * sizeof(char*));
 
-    arg = strtok(cmd, " \t\n");
+    arg = strtok(line, delims);
     while(arg != NULL)
     {
         args[pos] = arg;
@@ -94,17 +95,13 @@ char** split_command(char* cmd)
 
         if(pos >= buf_size)
         {
-            buf_size += ARGUMENT_SIZE;
+            buf_size += size;
             args = realloc(args, buf_size * sizeof(char*));
         }
 
-        arg = strtok(NULL, " \t\n");
+        arg = strtok(NULL, delims);
     }
     args[pos] = NULL;
-    for(int i = 0; args[i] != NULL; i++)
-    {
-        printf("%s\n", args[i]);
-    }
     return args;
 }
 

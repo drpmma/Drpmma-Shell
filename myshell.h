@@ -1,7 +1,13 @@
 #define FILE_PATH_LENGTH 100
-#define ARGUMENT_SIZE 64
+#define COMMAND_SIZE 64
+#define ARGUMENT_SIZE 32
 
 extern char** environ;
+
+struct command{
+    char **args;
+    int num;
+};
 
 char* internal_str[] = {
     "cd",
@@ -37,8 +43,7 @@ int (*internal_cmd[]) (char **) = {
 
 void main_loop();
 char* read_line();
-char** parse_line();
-char** split_command(char* line);
+char** split_str(char* line, int size, char* delims);
 int parse_redirect();
-int parse_pipe();
+int parse_pipe(char** cmd1, char** cmd2);
 int execute(char** args);
