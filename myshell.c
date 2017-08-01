@@ -202,21 +202,18 @@ char** split_str(char* line, int size, char* delims)
 
 int execute(struct command cmd, int fd_in, int fd_out, int fd_err)
 {
+    int status;
     if(cmd.args[0] == NULL)
         return 1;
 
     parse_redirect(cmd.args, &fd_in, &fd_out);
 
-    for (int i = 0; i < sizeof(internal_str) / sizeof(char*); i++) 
-    {
-        if (strcmp(cmd.args[0], internal_str[i]) == 0) 
-        {
-            return !((*internal_cmd[i])(cmd.args));
-        }
-    }
+    status = builtin_cmd(cmd);
+    if(status != -1)
+        return !status;
 
     pid_t pid, w_pid;
-    int ret, status;
+    int ret;
 
     pid = fork();
     if(pid < 0)
@@ -261,6 +258,48 @@ int execute(struct command cmd, int fd_in, int fd_out, int fd_err)
        status = WEXITSTATUS(ret);
     }
     return 1;
+}
+
+int builtin_cmd(struct command cmd)
+{
+    if(strcmp(cmd.args[0], "cd") == 0)
+    {
+        return shell_cd(cmd.args);
+    }
+    else if(strcmp(cmd.args[0], "time") == 0)
+    {
+        return shell_time(cmd.args);
+    }
+    else if(strcmp(cmd.args[0], "umask") == 0)
+    {
+        return shell_umask(cmd.args);
+    }
+    else if(strcmp(cmd.args[0], "environ") == 0)
+    {
+        return shell_environ(cmd.args);
+    }
+    else if(strcmp(cmd.args[0], "set") == 0)
+    {
+        return shell_set(cmd.args);
+    }
+    else if(strcmp(cmd.args[0], "unset") == 0)
+    {
+        return shell_unset(cmd.args);
+    }
+    else if(strcmp(cmd.args[0], "exec") == 0)
+    {
+        return shell_exec(cmd.args);
+    }
+    else if(strcmp(cmd.args[0], "help") == 0)
+    {
+        return shell_help(cmd.args);
+    }
+    else if(strcmp(cmd.args[0], "exit") == 0)
+    {
+        return shell_exit(cmd.args);
+    }
+    else
+        return -1;
 }
 
 int shell_cd(char** args)
