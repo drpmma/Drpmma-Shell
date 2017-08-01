@@ -26,6 +26,7 @@ void main_loop()
     getcwd(file_path, FILE_PATH_LENGTH);
     file_path=strcat(file_path, "/myshell");
     setenv("MYSHELL", file_path, 0);
+
     while(status)
     {
         getcwd(file_path, FILE_PATH_LENGTH);
@@ -68,43 +69,19 @@ char** split_line(char* line)
     return args;
 }
 
-int parse_pipe()
-{
-    char** args = malloc(64 * sizeof(char*));
-    int fd[2];
-    pipe(fd);
-    pid_t pid = fork();
-    if(pid < 0)
-    {
-        perror("myshell");
-    }
-    else if(pid == 0)
-    {
-        args[0] = "ls";
-        close(0);
-        close(fd[0]);
-        close(fd[1]);
-        dup(fd[0]);
-        execute(args);
-    }
-    else
-    {
-        args[0] = "grep";
-        args[1] = "m";
-        close(1);
-        close(fd[0]);
-        close(fd[1]);
-        dup(fd[1]);
-        execute(args);
-    }
-    return 1;
-}
-
 int execute(char** args)
 {
     if(args[0] == NULL)
         return 1;
 
+    for (int i = 0; i < sizeof(internal_str) / sizeof(char*); i++) 
+    {
+        if (strcmp(args[0], internal_str[i]) == 0) 
+        {
+            return !((*internal_cmd[i])(args));
+        }
+    }
+    
     pid_t pid, w_pid;
     int ret, status;
 
@@ -119,13 +96,7 @@ int execute(char** args)
         // signal(SIGTSTP, SIG_DFL);
         // signal(SIGCONT, SIG_DFL);
 
-        for (int i = 0; i < sizeof(internal_str) / sizeof(char*); i++) 
-        {
-            if (strcmp(args[0], internal_str[i]) == 0) 
-            {
-                exit((*internal_cmd[i])(args));
-            }
-        }
+
         if(execvp(args[0], args) == -1)
         {
             perror("myshell");
@@ -137,9 +108,9 @@ int execute(char** args)
         // signal(SIGINT, SIG_IGN);
         // signal(SIGTSTP, SIG_IGN);
         // signal(SIGCONT, SIG_DFL);
-        do {
+        // do {
             w_pid = waitpid(pid, &ret, WUNTRACED);
-        } while (!WIFEXITED(ret) && !WIFSIGNALED(ret));
+        // } while (!WIFEXITED(ret) && !WIFSIGNALED(ret));
 
         status = WEXITSTATUS(ret);
     }
