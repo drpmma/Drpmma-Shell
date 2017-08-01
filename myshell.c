@@ -33,7 +33,6 @@ void main_loop()
         line = read_line();
         args = split_line(line);
         status = execute(args);
-        printf("return:status:%d\n", status);
     }
 }
 
@@ -107,7 +106,7 @@ int execute(char** args)
         return 1;
 
     pid_t pid, w_pid;
-    int status;
+    int ret, status;
 
     pid = fork();
     if(pid < 0)
@@ -124,7 +123,7 @@ int execute(char** args)
         {
             if (strcmp(args[0], internal_str[i]) == 0) 
             {
-                return (*internal_cmd[i])(args);
+                exit((*internal_cmd[i])(args));
             }
         }
         if(execvp(args[0], args) == -1)
@@ -139,10 +138,11 @@ int execute(char** args)
         // signal(SIGTSTP, SIG_IGN);
         // signal(SIGCONT, SIG_DFL);
         do {
-            w_pid = waitpid(pid, &status, WUNTRACED);
-        } while (!WIFEXITED(status) && !WIFSIGNALED(status));
+            w_pid = waitpid(pid, &ret, WUNTRACED);
+        } while (!WIFEXITED(ret) && !WIFSIGNALED(ret));
+
+        status = WEXITSTATUS(ret);
     }
-    printf("status:%d\n", status);
     return !status;
 }
 
@@ -227,14 +227,12 @@ int shell_unset(char** args)
 int shell_exec(char** args)
 {
     execvp(args[1], args + 1);
-    return 0;
 }
 
 int shell_help(char** args)
 {
     char* cmd[] = {"more", "README.md"};
     execvp(cmd[0], cmd);
-    return 0;
 }
 
 int shell_exit(char** args)
