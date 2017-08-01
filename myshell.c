@@ -20,12 +20,19 @@ void main_loop()
     file_path=strcat(file_path, "/myshell");
     setenv("MYSHELL", file_path, 0);
 
+    if(signal(SIGCHLD, handle_child) == SIG_ERR)
+    {
+        printf("signal error.\n");
+        return;
+    }
     signal(SIGINT, SIG_IGN);
     signal(SIGTSTP, SIG_IGN);
     signal(SIGCONT, SIG_DFL);
 
     cmd_array = malloc(COMMAND_NUMBER * sizeof(struct command));
-    memset(cmd_array, 0, COMMAND_NUMBER);
+    memset(cmd_array, 0, COMMAND_NUMBER * sizeof(struct command));
+    job_array = malloc(JOB_NUMBER * sizeof(struct jobs));
+    job_init(job_array + i);
     while(status)
     {
         getcwd(file_path, FILE_PATH_LENGTH);
@@ -207,7 +214,6 @@ int execute(struct command cmd, int fd_in, int fd_out, int fd_err)
         return 1;
 
     parse_redirect(cmd.args, &fd_in, &fd_out);
-
     status = builtin_cmd(cmd);
     if(status != -1)
         return !status;
@@ -223,7 +229,7 @@ int execute(struct command cmd, int fd_in, int fd_out, int fd_err)
     else if(pid == 0)
     {
         signal(SIGINT, SIG_DFL);
-        signal(SIGTSTP, SIG_DFL);
+        signal(SIGTSTP, handle_stop);
         signal(SIGCONT, SIG_DFL);
 
         if(fd_out==STDIN_FILENO)
@@ -249,7 +255,19 @@ int execute(struct command cmd, int fd_in, int fd_out, int fd_err)
     else
     {
         if(cmd.mode == BACKGROUND)
-            signal(SIGCHLD, SIG_IGN);
+        {
+            struct jobs* temp_job = get_new_job(job_array);
+            temp_job->pid = pid;
+            temp_job->name = malloc(NAME_SIZE);
+            memset(temp_job->name, 0, NAME_SIZE);
+            for(int i = 0; cmd.args[i] != NULL; i++)
+            {
+                strcat(temp_job->name, cmd.args[i]);
+                strcat(temp_job->name, " ");
+            }
+            change_state(pid, JOB_STATE_RUN);
+            printf("[%d] %d\n", temp_job->id, temp_job->pid);
+        }
         else
         // do {
             waitpid(pid, &ret, WUNTRACED);
@@ -297,6 +315,20 @@ int builtin_cmd(struct command cmd)
     else if(strcmp(cmd.args[0], "exit") == 0)
     {
         return shell_exit(cmd.args);
+    }
+    else if(strcmp(cmd.args[0], "jobs") == 0)
+        return shell_jobs(cmd.args);
+    else if(strcmp(cmd.args[0], "kill") == 0)
+    {
+        return shell_kill(cmd.args);
+    }
+    else if(strcmp(cmd.args[0], "fg") == 0)
+    {
+        return shell_fg(cmd.args);
+    }
+    else if(strcmp(cmd.args[0], "bg") == 0)
+    {
+        return shell_bg(cmd.args);
     }
     else
         return -1;
