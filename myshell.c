@@ -20,12 +20,13 @@ void main_loop()
     file_path=strcat(file_path, "/myshell");
     setenv("MYSHELL", file_path, 0);
 
+
     if(signal(SIGCHLD, handle_child) == SIG_ERR)
     {
         printf("signal error.\n");
         return;
     }
-    signal(SIGINT, SIG_IGN);
+    // signal(SIGINT, SIG_IGN);
     signal(SIGTSTP, SIG_IGN);
     signal(SIGCONT, SIG_DFL);
 
@@ -229,7 +230,7 @@ int execute(struct command cmd, int fd_in, int fd_out, int fd_err)
     else if(pid == 0)
     {
         signal(SIGINT, SIG_DFL);
-        signal(SIGTSTP, handle_stop);
+        signal(SIGTSTP, SIG_DFL);
         signal(SIGCONT, SIG_DFL);
 
         if(fd_out==STDIN_FILENO)
@@ -269,10 +270,15 @@ int execute(struct command cmd, int fd_in, int fd_out, int fd_err)
             printf("[%d] %d\n", temp_job->id, temp_job->pid);
         }
         else
+        {
         // do {
             waitpid(pid, &ret, WUNTRACED);
         // } while (!WIFEXITED(ret) && !WIFSIGNALED(ret));
-
+            if((WIFSTOPPED(ret)))
+            {
+                handle_stop(cmd);
+            }
+        }
        status = WEXITSTATUS(ret);
     }
     return 1;
@@ -324,11 +330,11 @@ int builtin_cmd(struct command cmd)
     }
     else if(strcmp(cmd.args[0], "fg") == 0)
     {
-        return shell_fg(cmd.args);
+        return shell_fg(cmd);
     }
     else if(strcmp(cmd.args[0], "bg") == 0)
     {
-        return shell_bg(cmd.args);
+        return shell_bg(cmd);
     }
     else
         return -1;

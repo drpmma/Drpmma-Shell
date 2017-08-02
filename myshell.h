@@ -18,14 +18,8 @@
 #define COMMAND_NUMBER 20
 #define COMMAND_SIZE 64
 #define ARGUMENT_SIZE 32
-#define NAME_SIZE 64
 
 extern char** environ;
-
-struct command{
-    char** args;
-    int mode;
-};
 
 struct jobs* job_array;
 

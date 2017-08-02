@@ -17,12 +17,19 @@
 #define JOB_STATE_PAUSE 2
 #define JOB_STATE_STOP 3
 
+#define NAME_SIZE 64
+
 struct jobs
 {
     int id;
     pid_t pid;
     char* name;
     int state;
+};
+
+struct command{
+    char** args;
+    int mode;
 };
 
 struct jobs* job_array;
@@ -34,10 +41,10 @@ struct jobs* get_job_byPID(pid_t pid);
 int check_bg_fg(char** args);
 int shell_jobs(char** args);
 int shell_kill(char** args);
-int shell_fg(char** args);
-int shell_bg(char** args);
+int shell_fg(struct command cmd);
+int shell_bg(struct command cmd);
 void handle_child(int sig);
-void handle_stop(int sig);
+void handle_stop(struct command cmd);
 void change_state(pid_t pid, int state);
 void clear_job(pid_t pid);
 

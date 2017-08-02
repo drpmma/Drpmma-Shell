@@ -44,6 +44,11 @@ int shell_jobs(char** args)
             printf("%s\n", job_array[i].name);
             clear_job(job_array[i].pid);
         }
+        if(job_array[i].state == JOB_STATE_PAUSE)
+        {
+            printf("[%d]+ 已停止\t", job_array[i].id);
+            printf("%s\n", job_array[i].name);
+        }
     }
     return 0;
 }
@@ -78,36 +83,37 @@ int shell_kill(char** args)
     else
     {
         pid_t pid = atoi(args[1]);
-        if(pid == 0)
-        {
-            printf("myshell:参数错误\n");
-        }
-        else
-        {
-            struct jobs* temp_job = get_job_byPID(pid);
-            if(temp_job != NULL)
-            {
-                kill(temp_job->pid, SIGKILL);
-                change_state(temp_job->pid, JOB_STATE_STOP);
-            }
-            else
-            {
-                printf("myshell:不存在这样的pid\n");
-            }
-        }
+        kill(pid, SIGKILL);
+        // if(pid == 0)
+        // {
+        //     printf("myshell:参数错误\n");
+        // }
+        // else
+        // {
+        //     struct jobs* temp_job = get_job_byPID(pid);
+        //     if(temp_job != NULL)
+        //     {
+        //         kill(temp_job->pid, SIGKILL);
+        //         change_state(temp_job->pid, JOB_STATE_STOP);
+        //     }
+        //     else
+        //     {
+        //         printf("myshell:不存在这样的pid\n");
+        //     }
+        // }
     }
     return 0;
 }
 
-int shell_fg(char** args)
+int shell_fg(struct command cmd)
 {
-    if(args[1] == NULL)
+    if(cmd.args[1] == NULL)
     {
         printf("fg: 用法: fg %%{id} or fg {pid}\n");
     }
-    else if(args[1][0] == '%')
+    else if(cmd.args[1][0] == '%')
     {
-        int id = atoi(args[1] + 1);
+        int id = atoi(cmd.args[1] + 1);
         if(id == 0)
         {
             printf("myshell:参数错误\n");
@@ -119,6 +125,7 @@ int shell_fg(char** args)
             {
                 kill(temp_job->pid, SIGCONT);
                 waitpid(temp_job->pid, NULL, WUNTRACED);
+                cmd.mode = FOREGROUND;
                 change_state(temp_job->pid, JOB_STATE_RUN);
             }
             else
@@ -129,7 +136,7 @@ int shell_fg(char** args)
     }
     else
     {
-        int id = atoi(args[1]);
+        int id = atoi(cmd.args[1]);
         if(id == 0)
         {
             printf("myshell:参数错误\n");
@@ -152,15 +159,15 @@ int shell_fg(char** args)
     return 0;
 }
 
-int shell_bg(char** args)
+int shell_bg(struct command cmd)
 {
-    if(args[1] == NULL)
+    if(cmd.args[1] == NULL)
     {
         printf("bg: 用法: bg %%{id} or bg {pid}\n");
     }
-    else if(args[1][0] == '%')
+    else if(cmd.args[1][0] == '%')
     {
-        int id = atoi(args[1] + 1);
+        int id = atoi(cmd.args[1] + 1);
         if(id == 0)
         {
             printf("myshell:参数错误\n");
@@ -181,7 +188,7 @@ int shell_bg(char** args)
     }
     else
     {
-        int id = atoi(args[1]);
+        int id = atoi(cmd.args[1]);
         if(id == 0)
         {
             printf("myshell:参数错误\n");
@@ -193,6 +200,7 @@ int shell_bg(char** args)
             {
                 kill(temp_job->pid, SIGCONT);
                 change_state(temp_job->pid, JOB_STATE_RUN);
+                cmd.mode = BACKGROUND;
             }
             else
             {
@@ -228,10 +236,10 @@ struct jobs* get_new_job()
 void handle_child(int sig)
 {
     int status;  
-    pid_t pid;  
-    while( (pid = waitpid(-1,&status,WNOHANG)) > 0)  
-    {  
-        if ( WIFEXITED(status) )  
+    pid_t pid;
+    if((pid = waitpid(-1, &status, WNOHANG)) > 0)  
+    {
+        if(WIFEXITED(status))  
         {  
             change_state(pid, JOB_STATE_STOP);
             // changestate(pid);
@@ -239,15 +247,39 @@ void handle_child(int sig)
             // {
             //     exec_fg();
             // }
-        }  
-    } 
+        }
+    }
+    // pid = waitpid(-1, &status, WUNTRACED);
+    
+
+    // if(WIFSTOPPED(status))
+    // {
+    //     printf("333\n");
+    // }
 }
 
-void handle_stop(int sig)
+void handle_stop(struct command cmd)
 {
-    kill(pid, sig);
+    int pid = getpid();
+    struct jobs* temp_job = get_job_byPID(pid);
+    if(temp_job == NULL)
+    {
+        temp_job = get_new_job();
+        temp_job->pid = pid;
+        temp_job->name = malloc(NAME_SIZE);
+        memset(temp_job->name, 0, NAME_SIZE);
+        for(int i = 0; cmd.args[i] != NULL; i++)
+        {
+            strcat(temp_job->name, cmd.args[i]);
+            strcat(temp_job->name, " ");
+        }
+    }
+    cmd.mode = BACKGROUND;
+    change_state(pid, JOB_STATE_PAUSE);
+    printf("\n");
+    printf("[%d]+ 已停止\t", temp_job->id);
+    printf("%s\n", temp_job->name); 
 }
-
 
 void change_state(pid_t pid, int state)
 {
