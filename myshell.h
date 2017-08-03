@@ -40,6 +40,8 @@
 #define TEST_LT 34
 #define TEST_NE 35
 
+#define RETURN_CONTINUE 10
+
 extern char** environ;
 
 struct jobs* job_array;
@@ -56,12 +58,16 @@ int shell_exec(char** args);
 int shell_help(char** args);
 int shell_exit(char** args);
 int shell_test(char** args);
+int shell_continue();
+int shell_shift(char** args);
 int test_dir(char* arg);
 int test_file(char* arg, int flag);
 int test_logic(char** args, int flag);
 
 void main_loop();
 char* read_line();
+void parse_var(char** args);
+void parse_quote(char** args);
 char** split_str(char* line, int size, char* delims);
 int parse_redirect(char** args, int* pfd_in, int* pfd_out);
 int parse_pipe(struct command* cmd_array, int size);
@@ -70,5 +76,9 @@ int builtin_cmd(struct command cmd);
 int execute(struct command cmd, int fd_in, int fd_out, int fd_err);
 void clear_buffer(struct command* cmd_array, char* line, char** cmds);
 void signals();
+void set_arg(int argc, char* argv[]);
+void set_env_pid();
+void set_env_status();
+char* IntToString(int i);
 
 #endif

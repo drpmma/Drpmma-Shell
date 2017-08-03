@@ -1,7 +1,8 @@
 #include "myshell.h"
 
-int main(void)
+int main(int argc, char *argv[])
 {
+    set_arg(argc, argv);
     main_loop();                          // 主循环
 }
 
@@ -29,6 +30,8 @@ void main_loop()
         cmd_array = malloc(COMMAND_NUMBER * sizeof(struct command));
         memset(cmd_array, 0, COMMAND_NUMBER * sizeof(struct command));
         getcwd(file_path, FILE_PATH_LENGTH);
+        
+        set_env_pid();
         printf("myshell:%s>", file_path);
 
         line = read_line();
@@ -172,8 +175,78 @@ char** split_str(char* line, int size, char* delims)
     return args;
 }
 
+void parse_var(char** args)
+{
+    char* env_name;
+    char* env;
+    for(int i = 0; args[i] != NULL; i++)
+    {
+        if(args[i][0] == '$')
+        {
+            env_name = malloc(strlen(args[i] + 1));
+            strcpy(env_name, args[i] + 1);
+            env = getenv(env_name);
+            strcpy(args[i], env);
+            free(env_name);
+        }
+    }
+}
+
+void parse_quote(char** args)
+{
+    int quote_idx_l = -1, quote_idx_r = -1;
+    int find = 0;
+    for(int i = 0; args[i] != NULL; i++)
+    {
+        if(args[i][0] == '\"')
+        {
+            if(find == 0)
+            {
+                find = 1;
+                quote_idx_l = i;
+            }
+        }
+        int len = strlen(args[i]);
+        if(args[i][len - 1] == '\"')
+        {
+            quote_idx_r = i;
+        }
+    }
+    if(quote_idx_l != -1 && quote_idx_r != -1)
+    {
+        for(int i = quote_idx_l + 1; i <= quote_idx_r; i++)
+        {
+            strcat(args[quote_idx_l], args[i]);
+            args[i] = NULL;
+        }
+    }
+
+    char* env = NULL;
+    for(int i = 0; args[i] != NULL; i++)
+    {
+        if(args[i][0] == '\"' || args[i][0] == '$')
+        {
+            if(args[i][1] == '$' || args[i][0] == '$')
+            {
+                env = malloc(strlen(args[i]));
+                memset(env, 0, strlen(args[i]));
+                int k = 0;
+                for(int j = 0; args[i][j] != 0; j++)
+                {
+                    if(args[i][j] != '\"')
+                        env[k++] = args[i][j];
+                }
+                strcpy(args[i], env);
+                free(env);
+            }
+        }
+    }
+}
+
 int execute(struct command cmd, int fd_in, int fd_out, int fd_err)
 {
+    parse_quote(cmd.args);
+    parse_var(cmd.args);
     int status;
     if(cmd.args[0] == NULL)
         return 1;
@@ -222,7 +295,6 @@ int execute(struct command cmd, int fd_in, int fd_out, int fd_err)
         deal_bg_fg(cmd);
         if(cmd.mode == BACKGROUND)
         {
-            printf("back\n");
             struct jobs* temp_job = get_new_job(job_array);
             temp_job->pid = pid;
             temp_job->name = malloc(NAME_SIZE);
@@ -237,15 +309,16 @@ int execute(struct command cmd, int fd_in, int fd_out, int fd_err)
         }
         else
         {
-        // do {
             waitpid(pid, &ret, WUNTRACED);
-        // } while (!WIFEXITED(ret) && !WIFSIGNALED(ret));
-            if((WIFSTOPPED(ret)))
+            if(WIFSTOPPED(ret))
             {
                 handle_stop(cmd, pid);
             }
+            if(WIFEXITED(ret))
+            {
+                set_env_status(WEXITSTATUS(ret));
+            }
         }
-    //    status = WEXITSTATUS(ret);
     }
     if(status == -1)
         return 1;
@@ -301,6 +374,14 @@ int builtin_cmd(struct command cmd)
     else if(strcmp(cmd.args[0], "test") == 0)
     {
         return shell_test(cmd.args);
+    }
+    else if(strcmp(cmd.args[0], "continue") == 0)
+    {
+        return shell_continue();
+    }
+    else if(strcmp(cmd.args[0], "shift") == 0)
+    {
+        return shell_shift(cmd.args);
     }
     else
         return -1;
@@ -370,7 +451,7 @@ int shell_set(char** args)
     }
     else
     {
-        setenv(args[1], args[2], 0);
+        setenv(args[1], args[2], 1);
     }
     return 0;
 }
@@ -507,6 +588,77 @@ int shell_test(char** args)
     return 0;
 }
 
+int shell_continue()
+{
+    char* status_string = IntToString(RETURN_CONTINUE);
+    setenv("?", status_string, 1);
+    free(status_string);
+    return 0;
+}
+
+int shell_shift(char** args)
+{
+    int num;
+    if(args[1] == NULL)
+        num = 1;
+    else
+        num = atoi(args[1]);
+    char* arg_list = getenv("@");
+    char** para = split_str(arg_list, ARGUMENT_SIZE, " ");
+    int len = 0;
+    for(int i = 0; para[i] != 0; i++)
+    {
+        len = i;
+    }
+    len++;
+    char* s_arg_len;
+    char buf[2];
+    if(num >= len)
+    {
+        s_arg_len = IntToString(0);
+        setenv("@", "", 1);
+        setenv("*", "", 1);
+        setenv("#", s_arg_len, 1);
+    }
+    else
+    {
+        arg_list = malloc(ARGUMENT_SIZE);
+        memset(arg_list, 0, ARGUMENT_SIZE);
+        s_arg_len = IntToString(len - num);
+        for(int i = 0; para[i] != NULL; i++)
+        {
+            if(i + num < len)
+            {
+                para[i] = para[i + num];
+                char* num_s = IntToString(i + 1);
+                setenv(num_s, para[i], 1);
+                free(num_s);
+            }
+            else
+            {
+                char* num_s = IntToString(i + 1);
+                unsetenv(num_s);
+                free(num_s);
+                para[i] = NULL;
+            }
+        }
+        for(int i = 0; i < len - num; i++)
+        {
+            buf[0] = ' ';
+            buf[1] = 0;
+            strcat(arg_list, para[i]);
+            strcat(arg_list, buf);
+
+        }
+        setenv("@", arg_list, 1);
+        setenv("*", arg_list, 1);
+        setenv("#", s_arg_len, 1);
+    }
+    free(s_arg_len);
+    free(para);
+    return 0;
+}
+
 int test_dir(char* arg)
 {
     DIR* dir = NULL;
@@ -571,7 +723,7 @@ int test_file(char* arg, int flag)
         path[len + 1] = '\0';
         len++;
         strcpy(path + len, arg);
-        printf("1%s\n", path);
+        printf("%s\n", path);
     }
     else if(arg[0]=='~')
     {
@@ -741,4 +893,52 @@ void signals()
     signal(SIGINT, SIG_IGN);
     signal(SIGTSTP, SIG_IGN);
     signal(SIGCONT, SIG_DFL);
+}
+
+void set_arg(int argc, char* argv[])
+{
+    char buf[2];
+    char* arg_buf = IntToString(argc);
+    char* arg_list = malloc(ARGUMENT_SIZE);
+    memset(arg_list, 0, ARGUMENT_SIZE);
+    setenv("#", arg_buf, 1);
+    free(arg_buf);
+    for(int i = 0; argv[i] != 0; i++)
+    {
+        if(i != 0)
+        {
+            buf[0] = ' ';
+            buf[1] = 0;
+            strcat(arg_list, argv[i]);
+            strcat(arg_list, buf);
+        }
+        arg_buf = IntToString(i);
+        setenv(arg_buf, argv[i], 1);
+    }
+    setenv("*", arg_list, 1);
+    setenv("@", arg_list, 1);
+    free(arg_buf);
+    free(arg_list);
+}
+
+void set_env_pid()
+{
+    char* pidstring = IntToString(getpid());
+    setenv("$", pidstring, 1);
+    free(pidstring);
+}
+
+void set_env_status(int status)
+{
+    char* status_string = IntToString(status);
+    setenv("?", status_string, 1);
+    free(status_string);
+}
+
+char* IntToString(int i)
+{
+    char* buf = malloc(ARGUMENT_SIZE);
+    memset(buf, 0, ARGUMENT_SIZE);
+    sprintf(buf, "%d", i);
+    return buf;    
 }
