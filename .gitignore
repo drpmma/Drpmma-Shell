@@ -1,2 +1,4 @@
 myshell
 *.o
+*.sh
+/.vscode/
