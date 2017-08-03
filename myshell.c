@@ -19,6 +19,7 @@ void main_loop()
     getcwd(file_path, FILE_PATH_LENGTH);
     strcat(file_path, "/myshell");
     setenv("MYSHELL", file_path, 0);
+    HOME = getenv("HOME");
 
     job_array = malloc(JOB_NUMBER * sizeof(struct jobs));
     job_init(job_array);
@@ -297,14 +298,10 @@ int builtin_cmd(struct command cmd)
     {
         return shell_kill(cmd.args);
     }
-    // else if(strcmp(cmd.args[0], "fg") == 0)
-    // {
-    //     return shell_fg(cmd);
-    // }
-    // else if(strcmp(cmd.args[0], "bg") == 0)
-    // {
-    //     return shell_bg(cmd);
-    // }
+    else if(strcmp(cmd.args[0], "test") == 0)
+    {
+        return shell_test(cmd.args);
+    }
     else
         return -1;
 }
@@ -313,7 +310,7 @@ int shell_cd(char** args)
 {
     if(args[1] == NULL)
     {
-        chdir(getenv("HOME"));
+        chdir(HOME);
     }
     else
     {
@@ -401,6 +398,326 @@ int shell_help(char** args)
 int shell_exit(char** args)
 {
     return 1;
+}
+
+int shell_test(char** args)
+{
+    int res;
+    if(args[1][0] == '-')
+    {
+        switch(args[1][1])
+        {
+            case 'd':
+            {
+                res = test_dir(args[2]);
+                break;
+            }
+            case 'b':
+            {
+                res = test_file(args[2], TEST_B);
+                break;
+            }
+            case 'c':
+            {
+                res = test_file(args[2], TEST_C);
+                break;
+            }
+            case 'e':
+            {
+                res = test_file(args[2], TEST_E);
+                break;
+            }
+            case 'f':
+            {
+                res = test_file(args[2], TEST_F);
+                break;
+            }
+            case 'h':
+            {
+                res = test_file(args[2], TEST_H);
+                break;
+            }
+            case 'l':
+            {
+                res = test_file(args[2], TEST_L);
+                break;
+            }
+            case 'p':
+            {
+                res = test_file(args[2], TEST_P);
+                break;
+            }
+            case 'r':
+            {
+                res = test_file(args[2], TEST_R);
+                break;
+            }
+            case 'w':
+            {
+                res = test_file(args[2], TEST_W);
+                break;
+            }
+            case 'x':
+            {
+                res = test_file(args[2], TEST_X);
+                break;
+            }
+            // default: 
+            // {
+                
+            // }
+        }
+    }
+    else if(args[2][0] == '-')
+    {
+        if(strcmp(args[2], "-eq") == 0)
+        {
+            res = test_logic(args, TEST_EQ);
+        }
+        else if(strcmp(args[2], "-ge") == 0)
+        {
+            res = test_logic(args, TEST_GE);
+        }
+        else if(strcmp(args[2], "-gt") == 0)
+        {
+            res = test_logic(args, TEST_GT);
+        }
+        else if(strcmp(args[2], "-le") == 0)
+        {
+            res = test_logic(args, TEST_LE);
+        }
+        else if(strcmp(args[2], "-lt") == 0)
+        {
+            res = test_logic(args, TEST_LT);
+        }
+        else if(strcmp(args[2], "-ne") == 0)
+        {
+            res = test_logic(args, TEST_NE);
+        }
+        else
+        {
+            printf("错误的参数\n");
+            return 0;
+        }
+    }
+    if(res == 0)
+        printf("false\n");
+    else
+        printf("true\n");
+    return 0;
+}
+
+int test_dir(char* arg)
+{
+    DIR* dir = NULL;
+    struct stat dir_info;
+    struct dirent* dirp = NULL;
+    char* path = malloc(FILE_PATH_LENGTH);
+    if(arg == NULL)
+    {
+        return 0;
+    }
+    if(arg[0] != '/' && arg[0] != '~')
+    {
+        getcwd(path, FILE_PATH_LENGTH);
+        int len = strlen(path);
+        path[len] = '/';
+        path[len + 1] = '\0';
+        len++;
+        strcpy(path + len, arg);
+        printf("%s\n", path);
+    }
+    else if(arg[0]=='~')
+    {
+        strcpy(path, HOME);
+        strcpy(path + strlen(HOME), arg + 1);
+    }
+    else
+    {
+        strcpy(path, arg);
+    }
+    if(stat(path, &dir_info) == -1)
+    {
+        return 0;
+    }
+    else
+    {
+        if(S_ISDIR(dir_info.st_mode))
+        {
+            return 1;
+        }
+        else
+        {
+            return 0;
+        }
+    }
+}
+
+int test_file(char* arg, int flag)
+{
+    DIR* dir = NULL;
+    struct stat dir_info;
+    struct dirent* dirp = NULL;
+    char* path = malloc(FILE_PATH_LENGTH);
+    if(arg == NULL)
+    {
+        return 0;
+    }
+    if(arg[0] != '/' && arg[0] != '~')
+    {
+        getcwd(path, FILE_PATH_LENGTH);
+        int len = strlen(path);
+        path[len] = '/';
+        path[len + 1] = '\0';
+        len++;
+        strcpy(path + len, arg);
+        printf("1%s\n", path);
+    }
+    else if(arg[0]=='~')
+    {
+        strcpy(path, HOME);
+        strcpy(path + strlen(HOME), arg + 1);
+    }
+    else
+    {
+        strcpy(path, arg);
+    }
+
+    if(lstat(path, &dir_info) == -1)
+    {
+        return 1;
+    }
+    else
+    {
+        switch(flag)
+        {
+            case TEST_B:
+            {
+                if(S_ISBLK(dir_info.st_mode))
+                {
+                    return 1;
+                }
+                else
+                {
+                    return 0;
+                }
+            }
+            case TEST_C:
+            {
+                if(S_ISCHR(dir_info.st_mode))
+                {
+                    return 1;
+                }
+                else
+                {
+                    return 0;
+                }
+            }
+            case TEST_E:
+            {
+                return 1;
+            }
+            case TEST_F:
+            {
+                if(S_ISREG(dir_info.st_mode))
+                {
+                    return 1;
+                }
+                else
+                {
+                    return 0;
+                }
+            }
+            case TEST_H: case TEST_L:
+            {
+                if(S_ISREG(dir_info.st_mode))
+                {
+                    return 1;
+                }
+                else
+                {
+                    return 0;
+                }
+            }
+            case TEST_P:
+            {
+                if(S_ISFIFO(dir_info.st_mode))
+                {
+                    return 1;
+                }
+                else
+                {
+                    return 0;
+                }
+            }
+            case TEST_R:
+            {
+                if(access(path, R_OK) == 0)
+                {
+                    return 1;
+                }
+                else
+                {
+                    return 0;
+                }
+            }
+            case TEST_W:
+            {
+                if(access(path, W_OK) == 0)
+                {
+                    return 1;
+                }
+                else
+                {
+                    return 0;
+                }
+            }
+            case TEST_X:
+            {
+                if(access(path, X_OK) == 0)
+                {
+                    return 1;
+                }
+                else
+                {
+                    return 0;
+                }
+            }
+        }
+    }
+}
+
+int test_logic(char** args, int flag)
+{
+    int num1 = atoi(args[1]);
+    int num2 = atoi(args[3]);
+    switch(flag)
+    {
+        case TEST_EQ:
+        {
+            return num1 == num2;
+        }
+        case TEST_GE:
+        {
+            return num1 >= num2;
+        }
+        case TEST_GT:
+        {
+            return num1 > num2;
+        }
+        case TEST_LE:
+        {
+            return num1 <= num2;
+        }
+        case TEST_LT:
+        {
+            return num1 < num2;
+        }
+        case TEST_NE:
+        {
+            return num1 != num2;
+        }
+    }
 }
 
 void clear_buffer(struct command* cmd_array, char* line, char** cmds)
