@@ -12,30 +12,21 @@ void main_loop()
     struct command* cmd_array;
     char** args;
     int status = 1;
+    char* file_path;
     int i;
-    char *file_path;
 
-    file_path=(char *)malloc(FILE_PATH_LENGTH);
+    file_path=(char*)malloc(FILE_PATH_LENGTH);
     getcwd(file_path, FILE_PATH_LENGTH);
-    file_path=strcat(file_path, "/myshell");
+    strcat(file_path, "/myshell");
     setenv("MYSHELL", file_path, 0);
 
-
-    if(signal(SIGCHLD, handle_child) == SIG_ERR)
-    {
-        printf("signal error.\n");
-        return;
-    }
-    // signal(SIGINT, SIG_IGN);
-    signal(SIGTSTP, SIG_IGN);
-    signal(SIGCONT, SIG_DFL);
-
-    cmd_array = malloc(COMMAND_NUMBER * sizeof(struct command));
-    memset(cmd_array, 0, COMMAND_NUMBER * sizeof(struct command));
     job_array = malloc(JOB_NUMBER * sizeof(struct jobs));
-    job_init(job_array + i);
+    job_init(job_array);
+    signals();
     while(status)
     {
+        cmd_array = malloc(COMMAND_NUMBER * sizeof(struct command));
+        memset(cmd_array, 0, COMMAND_NUMBER * sizeof(struct command));
         getcwd(file_path, FILE_PATH_LENGTH);
         printf("myshell:%s>", file_path);
 
@@ -53,7 +44,10 @@ void main_loop()
         {
             parse_pipe(cmd_array, i);
         }
+        clear_buffer(cmd_array, line, cmds);
     }
+    free(file_path);
+    clear_job_all();
 }
 
 char* read_line()
@@ -67,27 +61,16 @@ char* read_line()
 int parse_redirect(char** args, int* pfd_in, int* pfd_out)
 {
     int is_append = 0;
-    int flags;                    /* Flags for open() */ 
-    int mode = S_IRUSR | S_IWUSR; /* Mode for open() */
+    int flags;                              // open函数的flag
+    int mode = S_IRUSR | S_IWUSR;           // open函数的mode
     for (int i = 0; args[i] != NULL; i++) 
     {
         if ((strcmp(args[i], ">") == 0) || (strcmp(args[i], "<") == 0)) {
-            /* Check syntax error -- redirection where innappropriate */
-            // if (numpipes > 1) {
-            //     if (!strcmp(argv[i], ">") && pipeno + 1 < numpipes)
-            //         return 1;
-            //     if (!strcmp(argv[i], "<") && pipeno != 0)
-            //         return 1;
-            // }
-            /* Check syntax error -- no file given */
-            // if (i >= argc)
-            //     return 1;
-
             flags = (strcmp(args[i], ">") == 0) ? O_WRONLY | O_CREAT | O_TRUNC : O_RDONLY;
             int fd_tmp = open(args[i + 1], flags, mode);
             if (fd_tmp < 0) {
                 perror("run_shell: start_prog");
-                if (errno != ENOENT) /* Consider ENOENT (file not found) a syntax error */
+                if (errno != ENOENT)        // 检查ENOENT错误
                     exit(EXIT_FAILURE);
                 return 1;
             }
@@ -101,7 +84,7 @@ int parse_redirect(char** args, int* pfd_in, int* pfd_out)
             int fd_tmp = open(args[i + 1], flags, mode);
             if (fd_tmp < 0) {
                 perror("run_shell: start_prog");
-                if (errno != ENOENT) /* Consider ENOENT (file not found) a syntax error */
+                if (errno != ENOENT)
                     exit(EXIT_FAILURE);
                 return 1;
             }
@@ -120,37 +103,25 @@ int parse_pipe(struct command* cmd_array, int size)
     if (pipe(p1))
         perror("myshell: split_line");
 
-    /* Get started from stdin */
-    // if (start_prog(0, nchunks, commands[0].argv[0], commands[0].argc, commands[0].argv, 0, p1[1])) {
-	// free_commands(commands, nchunks);
-	// free(commands);
-    //     return 1;
-    // }
     execute(cmd_array[0], 0, p1[1], 2);
     close(p1[1]);
 
     for (i = 1; i < size - 1; i++) {
         /* Read from parent's pipe, write to child's */
         /* Close the pipe we read from, and the one we write to */
-        if (i % 2) {
+        if (i % 2) 
+        {
             if (pipe(p2))
                 perror("myshell: split_line");
-        //     if (start_prog(i, nchunks, commands[i].argv[0], commands[i].argc, commands[i].argv, p1[0], p2[1])) {
-		// free_commands(commands, nchunks);
-		// free(commands);
-        //         return 1;
-	    // }
             execute(cmd_array[i], p1[0], p2[1], 2);
             close(p1[0]);
             close(p2[1]);
-        } else {
+        } 
+        else 
+        {
             if (pipe(p1))
                 perror("myshell: split_line");
-        //     if (start_prog(i, nchunks, commands[i].argv[0], commands[i].argc, commands[i].argv, p2[0], p1[1])) {
-		// free_commands(commands, nchunks);
-		// free(commands);
-        //         return 1;
-	    // }
+
             execute(cmd_array[i], p2[0], p1[1], 2);
             close(p2[0]);
             close(p1[1]);
@@ -158,21 +129,13 @@ int parse_pipe(struct command* cmd_array, int size)
     }
 
     /* Finish on stdout */
-    if (i % 2) {
-    //     if (start_prog(i, nchunks, commands[i].argv[0], commands[i].argc, commands[i].argv, p1[0], 1)) {
-	//     free_commands(commands, nchunks);
-	//     free(commands);
-    //         return 1;
-	// }
+    if (i % 2) 
+    {
         execute(cmd_array[i], p1[0], 1, 2);
 
         close(p1[0]);
-    } else {
-        // if (start_prog(i, nchunks, commands[i].argv[0], commands[i].argc, commands[i].argv, p2[0], 1)) {
-	    // free_commands(commands, nchunks);
-	    // free(commands);
-            // return 1;
-	// }
+    } else 
+    {
         execute(cmd_array[i], p2[0], 1, 2);
         close(p2[0]);
     }
@@ -255,16 +218,7 @@ int execute(struct command cmd, int fd_in, int fd_out, int fd_err)
     }
     else
     {
-        if(strcmp(cmd.args[0], "fg") == 0)
-        {
-            shell_fg(cmd);
-        }
-        else if(strcmp(cmd.args[0], "bg") == 0)
-        {
-            shell_bg(cmd);
-        }
-        else if(strcmp(cmd.args[0], "jobs") == 0)
-            shell_jobs(cmd.args);
+        deal_bg_fg(cmd);
         if(cmd.mode == BACKGROUND)
         {
             printf("back\n");
@@ -335,8 +289,10 @@ int builtin_cmd(struct command cmd)
     {
         return shell_exit(cmd.args);
     }
-    // else if(strcmp(cmd.args[0], "jobs") == 0)
-    //     return shell_jobs(cmd.args);
+    else if(strcmp(cmd.args[0], "jobs") == 0)
+    {
+        return shell_jobs(cmd.args);
+    }
     else if(strcmp(cmd.args[0], "kill") == 0)
     {
         return shell_kill(cmd.args);
@@ -445,4 +401,27 @@ int shell_help(char** args)
 int shell_exit(char** args)
 {
     return 1;
+}
+
+void clear_buffer(struct command* cmd_array, char* line, char** cmds)
+{
+    free(line);
+    free(cmds);
+    for(int i = 0; i < COMMAND_NUMBER; i++)
+    {
+        free(cmd_array[i].args);
+    }
+    free(cmd_array);
+}
+
+void signals()
+{
+    if(signal(SIGCHLD, handle_child) == SIG_ERR)
+    {
+        printf("signal error.\n");
+        return;
+    }
+    signal(SIGINT, SIG_IGN);
+    signal(SIGTSTP, SIG_IGN);
+    signal(SIGCONT, SIG_DFL);
 }

@@ -41,5 +41,7 @@ int parse_pipe(struct command* cmd_array, int size);
 int check_builtin(struct command cmd);
 int builtin_cmd(struct command cmd);
 int execute(struct command cmd, int fd_in, int fd_out, int fd_err);
+void clear_buffer(struct command* cmd_array, char* line, char** cmds);
+void signals();
 
 #endif

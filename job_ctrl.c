@@ -29,6 +29,18 @@ int check_bg_fg(char** args)
         return FOREGROUND;
 }
 
+void deal_bg_fg(struct command cmd)
+{
+    if(strcmp(cmd.args[0], "fg") == 0)
+    {
+        shell_fg(cmd);
+    }
+    else if(strcmp(cmd.args[0], "bg") == 0)
+    {
+        shell_bg(cmd);
+    }
+}
+
 int shell_jobs(char** args)
 {
     for(int i = 0; i < JOB_NUMBER; i++)
@@ -321,6 +333,15 @@ void clear_job(pid_t pid)
     free(temp_job->name);
     temp_job->name = NULL;
     temp_job->state = JOB_STATE_INIT;
+}
+
+void clear_job_all()
+{
+    for(int i = 0; i < JOB_NUMBER; i++)
+    {
+        free(job_array[i].name);
+    }
+    free(job_array);
 }
 
 struct jobs* get_job_byID(int id)
