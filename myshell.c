@@ -13,19 +13,11 @@ void main_loop()
     struct command* cmd_array;
     char** args;
     int status = 1;
-    char* file_path;
     int i;
+    int file_flag = 0;
 
-    file_path=(char*)malloc(FILE_PATH_LENGTH);
-    getcwd(file_path, FILE_PATH_LENGTH);
-    strcat(file_path, "/myshell");
-    setenv("MYSHELL", file_path, 0);
-    HOME = getenv("HOME");
-
-    job_array = malloc(JOB_NUMBER * sizeof(struct jobs));
-    job_init(job_array);
-    signals();
-    while(status)
+    init();
+    while(status && !file_flag)
     {
         cmd_array = malloc(COMMAND_NUMBER * sizeof(struct command));
         memset(cmd_array, 0, COMMAND_NUMBER * sizeof(struct command));
@@ -34,7 +26,7 @@ void main_loop()
         set_env_pid();
         printf("myshell:%s>", file_path);
 
-        line = read_line();
+        line = read_line(&file_flag);
         cmds = split_str(line, COMMAND_SIZE, "|");
         for(i = 0; cmds[i] != NULL; i++)
         {
@@ -48,17 +40,55 @@ void main_loop()
         {
             parse_pipe(cmd_array, i);
         }
-        clear_buffer(cmd_array, line, cmds);
+        // clear_buffer(cmd_array, line, cmds);
     }
     free(file_path);
     clear_job_all();
 }
 
-char* read_line()
+void init()
+{
+    file_path=(char*)malloc(FILE_PATH_LENGTH);
+    getcwd(file_path, FILE_PATH_LENGTH);
+
+    PATH = getenv("PATH");
+    new_PATH = malloc(FILE_PATH_LENGTH);
+    memset(new_PATH, 0, FILE_PATH_LENGTH);
+    strcat(new_PATH, "PATH=\0");
+    strcat(new_PATH, PATH);
+    strcat(new_PATH, ":\0");
+    strcat(new_PATH, file_path);
+    putenv(new_PATH);
+
+    strcat(file_path, "/myshell\0");
+    setenv("MYSHELL", file_path, 0);
+    
+    HOME = getenv("HOME");
+
+    job_array = malloc(JOB_NUMBER * sizeof(struct jobs));
+    job_init(job_array);
+
+    signals();
+
+    // free(new_PATH);
+}
+
+char* read_line(int* pfile_flag)
 {
     char *line = NULL;
     ssize_t bufsize = 0;
-    getline(&line, &bufsize, stdin);            // 通过getline函数可以方便的读入一行
+    char* cmd_name = getenv("0");
+    char* cmd_file = getenv("1");
+    if(strcmp(cmd_name, "myshell") == 0 && test_file(cmd_file, TEST_R))
+    {
+        FILE* fp = fopen(cmd_file, "r");
+        getline(&line, &bufsize, fp);
+        *pfile_flag = 1;
+    }
+    else
+    {
+        getline(&line, &bufsize, stdin);            // 通过getline函数可以方便的读入一行
+    }
     return line;
 }
 

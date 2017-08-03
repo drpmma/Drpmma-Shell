@@ -15,7 +15,7 @@
 #include <dirent.h> 
 #include "job_ctrl.h"
 
-#define FILE_PATH_LENGTH 100
+#define FILE_PATH_LENGTH 200
 #define COMMAND_NUMBER 20
 #define COMMAND_SIZE 64
 #define ARGUMENT_SIZE 32
@@ -46,7 +46,10 @@ extern char** environ;
 
 struct jobs* job_array;
 
+char* file_path;
 char* HOME;
+char* PATH;
+char* new_PATH;
 
 int shell_cd(char** args);
 int shell_umask(char** args);
@@ -65,7 +68,8 @@ int test_file(char* arg, int flag);
 int test_logic(char** args, int flag);
 
 void main_loop();
-char* read_line();
+void init();
+char* read_line(int* pfile_flag);
 void parse_var(char** args);
 void parse_quote(char** args);
 char** split_str(char* line, int size, char* delims);
