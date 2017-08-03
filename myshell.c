@@ -592,7 +592,7 @@ int shell_continue()
 {
     char* status_string = IntToString(RETURN_CONTINUE);
     setenv("?", status_string, 1);
-    free(status_string);
+    printf("$?=%s\n", getenv("?"));
     return 0;
 }
 
