@@ -15,7 +15,8 @@
 #include <dirent.h> 
 #include "job_ctrl.h"
 
-#define FILE_PATH_LENGTH 200
+#define FILE_PATH_LENGTH 100
+#define PATH_LENGTH 500
 #define COMMAND_NUMBER 20
 #define COMMAND_SIZE 64
 #define ARGUMENT_SIZE 32

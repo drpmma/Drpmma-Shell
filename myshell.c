@@ -40,7 +40,7 @@ void main_loop()
         {
             parse_pipe(cmd_array, i);
         }
-        // clear_buffer(cmd_array, line, cmds);
+        clear_buffer(cmd_array, line, cmds);
     }
     free(file_path);
     clear_job_all();
@@ -52,15 +52,15 @@ void init()
     getcwd(file_path, FILE_PATH_LENGTH);
 
     PATH = getenv("PATH");
-    new_PATH = malloc(FILE_PATH_LENGTH);
-    memset(new_PATH, 0, FILE_PATH_LENGTH);
-    strcat(new_PATH, "PATH=\0");
+    new_PATH = malloc(PATH_LENGTH);
+    memset(new_PATH, 0, PATH_LENGTH);
+    strcat(new_PATH, "PATH=");
     strcat(new_PATH, PATH);
-    strcat(new_PATH, ":\0");
+    strcat(new_PATH, ":");
     strcat(new_PATH, file_path);
     putenv(new_PATH);
 
-    strcat(file_path, "/myshell\0");
+    strcat(file_path, "/myshell");
     setenv("MYSHELL", file_path, 0);
     
     HOME = getenv("HOME");
@@ -70,7 +70,7 @@ void init()
 
     signals();
 
-    // free(new_PATH);
+    free(new_PATH);
 }
 
 char* read_line(int* pfile_flag)
@@ -282,7 +282,7 @@ int execute(struct command cmd, int fd_in, int fd_out, int fd_err)
         return 1;
 
     parse_redirect(cmd.args, &fd_in, &fd_out);
-    status = builtin_cmd(cmd);
+    status = check_builtin(cmd);
     // if(status != -1)
     //     return !status;
 
@@ -318,7 +318,8 @@ int execute(struct command cmd, int fd_in, int fd_out, int fd_err)
         {
             execvp(cmd.args[0], cmd.args);
         }
-        exit(0);
+        // status = builtin_cmd(cmd);
+        // exit(status);
     }
     else
     {
@@ -348,11 +349,74 @@ int execute(struct command cmd, int fd_in, int fd_out, int fd_err)
             {
                 set_env_status(WEXITSTATUS(ret));
             }
+            status = WEXITSTATUS(ret);
         }
     }
     if(status == -1)
         return 1;
     return !status;
+}
+
+int check_builtin(struct command cmd)
+{
+    if(strcmp(cmd.args[0], "cd") == 0)
+    {
+        return 0;
+    }
+    else if(strcmp(cmd.args[0], "time") == 0)
+    {
+        return 0;
+    }
+    else if(strcmp(cmd.args[0], "umask") == 0)
+    {
+        return 0;
+    }
+    else if(strcmp(cmd.args[0], "environ") == 0)
+    {
+        return 0;
+    }
+    else if(strcmp(cmd.args[0], "set") == 0)
+    {
+        return 0;
+    }
+    else if(strcmp(cmd.args[0], "unset") == 0)
+    {
+        return 0;
+    }
+    else if(strcmp(cmd.args[0], "exec") == 0)
+    {
+        return 0;
+    }
+    else if(strcmp(cmd.args[0], "help") == 0)
+    {
+        return 0;
+    }
+    else if(strcmp(cmd.args[0], "exit") == 0)
+    {
+        return 0;
+    }
+    else if(strcmp(cmd.args[0], "jobs") == 0)
+    {
+        return 0;
+    }
+    else if(strcmp(cmd.args[0], "kill") == 0)
+    {
+        return 0;
+    }
+    else if(strcmp(cmd.args[0], "test") == 0)
+    {
+        return 0;
+    }
+    else if(strcmp(cmd.args[0], "continue") == 0)
+    {
+        return 0;
+    }
+    else if(strcmp(cmd.args[0], "shift") == 0)
+    {
+        return 0;
+    }
+    else
+        return -1;
 }
 
 int builtin_cmd(struct command cmd)
