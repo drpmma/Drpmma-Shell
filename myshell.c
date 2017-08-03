@@ -42,6 +42,7 @@ void main_loop()
         }
         clear_buffer(cmd_array, line, cmds);
     }
+    free(new_PATH);
     free(file_path);
     clear_job_all();
 }
@@ -69,8 +70,6 @@ void init()
     job_init(job_array);
 
     signals();
-
-    free(new_PATH);
 }
 
 char* read_line(int* pfile_flag)
@@ -285,7 +284,6 @@ int execute(struct command cmd, int fd_in, int fd_out, int fd_err)
     status = check_builtin(cmd);
     // if(status != -1)
     //     return !status;
-
     pid_t pid, w_pid;
     int ret;
 
@@ -314,12 +312,12 @@ int execute(struct command cmd, int fd_in, int fd_out, int fd_err)
         fd_out=dup2(fd_out,STDOUT_FILENO);
         fd_err=dup2(fd_err,STDERR_FILENO);
         
+        status = builtin_cmd(cmd);
         if(status == -1)
         {
             execvp(cmd.args[0], cmd.args);
         }
-        // status = builtin_cmd(cmd);
-        // exit(status);
+        exit(status);
     }
     else
     {
@@ -984,7 +982,7 @@ void signals()
         printf("signal error.\n");
         return;
     }
-    signal(SIGINT, SIG_IGN);
+    // signal(SIGINT, SIG_IGN);
     signal(SIGTSTP, SIG_IGN);
     signal(SIGCONT, SIG_DFL);
 }
