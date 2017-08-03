@@ -36,17 +36,23 @@ int shell_jobs(char** args)
         if(job_array[i].state == JOB_STATE_RUN)
         {
             printf("[%d]+ 运行中\t", job_array[i].id);
+            printf("pid=%d\t", job_array[i].pid);
+            printf("state=%d\t", job_array[i].state);
             printf("%s\n", job_array[i].name); 
         }
         if(job_array[i].state == JOB_STATE_STOP)
         {
             printf("[%d]+ 已终止\t", job_array[i].id);
+            printf("pid=%d\t", job_array[i].pid);
+            printf("state=%d\t", job_array[i].state);
             printf("%s\n", job_array[i].name);
             clear_job(job_array[i].pid);
         }
         if(job_array[i].state == JOB_STATE_PAUSE)
         {
             printf("[%d]+ 已停止\t", job_array[i].id);
+            printf("pid=%d\t", job_array[i].pid);
+            printf("state=%d\t", job_array[i].state);
             printf("%s\n", job_array[i].name);
         }
     }
@@ -107,9 +113,10 @@ int shell_kill(char** args)
 
 int shell_fg(struct command cmd)
 {
+    int ret;
     if(cmd.args[1] == NULL)
     {
-        printf("fg: 用法: fg %%{id} or fg {pid}\n");
+        printf("fg: 用法: fg %%{id} or fg {id}\n");
     }
     else if(cmd.args[1][0] == '%')
     {
@@ -123,10 +130,15 @@ int shell_fg(struct command cmd)
             struct jobs* temp_job = get_job_byID(id);
             if(temp_job != NULL)
             {
-                kill(temp_job->pid, SIGCONT);
-                waitpid(temp_job->pid, NULL, WUNTRACED);
+                printf("[%d] %d\n", temp_job->id, temp_job->pid);
                 cmd.mode = FOREGROUND;
                 change_state(temp_job->pid, JOB_STATE_RUN);
+                kill(temp_job->pid, SIGCONT);
+                waitpid(temp_job->pid, &ret, WUNTRACED);
+                if((WIFSTOPPED(ret)))
+                {
+                    handle_stop(cmd, temp_job->pid);
+                }
             }
             else
             {
@@ -146,13 +158,19 @@ int shell_fg(struct command cmd)
             struct jobs* temp_job = get_job_byID(id);
             if(temp_job != NULL)
             {
-                kill(temp_job->pid, SIGCONT);
-                waitpid(temp_job->pid, NULL, WUNTRACED);
+                printf("[%d] %d\n", temp_job->id, temp_job->pid);
+                cmd.mode = FOREGROUND;
                 change_state(temp_job->pid, JOB_STATE_RUN);
+                kill(temp_job->pid, SIGCONT);
+                waitpid(temp_job->pid, &ret, WUNTRACED);
+                if((WIFSTOPPED(ret)))
+                {
+                    handle_stop(cmd, temp_job->pid);
+                }
             }
             else
             {
-                printf("myshell:不存在这样的pid\n");
+                printf("myshell:不存在这样的id\n");
             }
         }
     }
@@ -163,7 +181,7 @@ int shell_bg(struct command cmd)
 {
     if(cmd.args[1] == NULL)
     {
-        printf("bg: 用法: bg %%{id} or bg {pid}\n");
+        printf("bg: 用法: bg %%{id} or bg {id}\n");
     }
     else if(cmd.args[1][0] == '%')
     {
@@ -177,7 +195,9 @@ int shell_bg(struct command cmd)
             struct jobs* temp_job = get_job_byID(id);
             if(temp_job != NULL)
             {
+                printf("[%d] %d\n", temp_job->id, temp_job->pid);
                 kill(temp_job->pid, SIGCONT);
+                cmd.mode = BACKGROUND;
                 change_state(temp_job->pid, JOB_STATE_RUN);
             }
             else
@@ -198,13 +218,14 @@ int shell_bg(struct command cmd)
             struct jobs* temp_job = get_job_byID(id);
             if(temp_job != NULL)
             {
+                printf("[%d] %d\n", temp_job->id, temp_job->pid);
                 kill(temp_job->pid, SIGCONT);
-                change_state(temp_job->pid, JOB_STATE_RUN);
                 cmd.mode = BACKGROUND;
+                change_state(temp_job->pid, JOB_STATE_RUN);
             }
             else
             {
-                printf("myshell:不存在这样的pid\n");
+                printf("myshell:不存在这样的id\n");
             }
         }
     }
@@ -241,7 +262,7 @@ void handle_child(int sig)
     {
         if(WIFEXITED(status))  
         {  
-            change_state(pid, JOB_STATE_STOP);
+            change_state(pid, JOB_STATE_PAUSE);
             // changestate(pid);
             // if(WEXITSTATUS(status)==DO_FG)
             // {
@@ -258,9 +279,8 @@ void handle_child(int sig)
     // }
 }
 
-void handle_stop(struct command cmd)
+void handle_stop(struct command cmd, pid_t pid)
 {
-    int pid = getpid();
     struct jobs* temp_job = get_job_byPID(pid);
     if(temp_job == NULL)
     {

@@ -38,6 +38,7 @@ char* read_line();
 char** split_str(char* line, int size, char* delims);
 int parse_redirect(char** args, int* pfd_in, int* pfd_out);
 int parse_pipe(struct command* cmd_array, int size);
+int check_builtin(struct command cmd);
 int builtin_cmd(struct command cmd);
 int execute(struct command cmd, int fd_in, int fd_out, int fd_err);
 

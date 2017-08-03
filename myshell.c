@@ -134,7 +134,7 @@ int parse_pipe(struct command* cmd_array, int size)
         /* Close the pipe we read from, and the one we write to */
         if (i % 2) {
             if (pipe(p2))
-                perror("run_shell: handle_line");
+                perror("myshell: split_line");
         //     if (start_prog(i, nchunks, commands[i].argv[0], commands[i].argc, commands[i].argv, p1[0], p2[1])) {
 		// free_commands(commands, nchunks);
 		// free(commands);
@@ -145,7 +145,7 @@ int parse_pipe(struct command* cmd_array, int size)
             close(p2[1]);
         } else {
             if (pipe(p1))
-                perror("run_shell: handle_line");
+                perror("myshell: split_line");
         //     if (start_prog(i, nchunks, commands[i].argv[0], commands[i].argc, commands[i].argv, p2[0], p1[1])) {
 		// free_commands(commands, nchunks);
 		// free(commands);
@@ -216,8 +216,8 @@ int execute(struct command cmd, int fd_in, int fd_out, int fd_err)
 
     parse_redirect(cmd.args, &fd_in, &fd_out);
     status = builtin_cmd(cmd);
-    if(status != -1)
-        return !status;
+    // if(status != -1)
+    //     return !status;
 
     pid_t pid, w_pid;
     int ret;
@@ -246,17 +246,28 @@ int execute(struct command cmd, int fd_in, int fd_out, int fd_err)
         fd_in=dup2(fd_in,STDIN_FILENO);
         fd_out=dup2(fd_out,STDOUT_FILENO);
         fd_err=dup2(fd_err,STDERR_FILENO);
-
-        if(execvp(cmd.args[0], cmd.args) == -1)
+        
+        if(status == -1)
         {
-            perror("myshell");
+            execvp(cmd.args[0], cmd.args);
         }
-        exit(1);
+        exit(0);
     }
     else
     {
+        if(strcmp(cmd.args[0], "fg") == 0)
+        {
+            shell_fg(cmd);
+        }
+        else if(strcmp(cmd.args[0], "bg") == 0)
+        {
+            shell_bg(cmd);
+        }
+        else if(strcmp(cmd.args[0], "jobs") == 0)
+            shell_jobs(cmd.args);
         if(cmd.mode == BACKGROUND)
         {
+            printf("back\n");
             struct jobs* temp_job = get_new_job(job_array);
             temp_job->pid = pid;
             temp_job->name = malloc(NAME_SIZE);
@@ -276,12 +287,14 @@ int execute(struct command cmd, int fd_in, int fd_out, int fd_err)
         // } while (!WIFEXITED(ret) && !WIFSIGNALED(ret));
             if((WIFSTOPPED(ret)))
             {
-                handle_stop(cmd);
+                handle_stop(cmd, pid);
             }
         }
-       status = WEXITSTATUS(ret);
+    //    status = WEXITSTATUS(ret);
     }
-    return 1;
+    if(status == -1)
+        return 1;
+    return !status;
 }
 
 int builtin_cmd(struct command cmd)
@@ -322,20 +335,20 @@ int builtin_cmd(struct command cmd)
     {
         return shell_exit(cmd.args);
     }
-    else if(strcmp(cmd.args[0], "jobs") == 0)
-        return shell_jobs(cmd.args);
+    // else if(strcmp(cmd.args[0], "jobs") == 0)
+    //     return shell_jobs(cmd.args);
     else if(strcmp(cmd.args[0], "kill") == 0)
     {
         return shell_kill(cmd.args);
     }
-    else if(strcmp(cmd.args[0], "fg") == 0)
-    {
-        return shell_fg(cmd);
-    }
-    else if(strcmp(cmd.args[0], "bg") == 0)
-    {
-        return shell_bg(cmd);
-    }
+    // else if(strcmp(cmd.args[0], "fg") == 0)
+    // {
+    //     return shell_fg(cmd);
+    // }
+    // else if(strcmp(cmd.args[0], "bg") == 0)
+    // {
+    //     return shell_bg(cmd);
+    // }
     else
         return -1;
 }
