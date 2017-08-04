@@ -223,6 +223,10 @@ void parse_var(char** args)
 
 void parse_quote(char** args)
 {
+    if( strcmp(args[0], "kill") == 0 || strcmp(args[0], "fg") == 0 || strcmp(args[0], "bg") == 0)
+    {
+        return;
+    }
     int quote_idx_l = -1, quote_idx_r = -1;
     int find = 0;
     for(int i = 0; args[i] != NULL; i++)
@@ -274,18 +278,19 @@ void parse_quote(char** args)
 
 int execute(struct command cmd, int fd_in, int fd_out, int fd_err)
 {
-    parse_quote(cmd.args);
-    parse_var(cmd.args);
     int status;
     if(cmd.args[0] == NULL)
         return 1;
-
+    parse_quote(cmd.args);
+    parse_var(cmd.args);
     parse_redirect(cmd.args, &fd_in, &fd_out);
     status = check_builtin(cmd);
-    // if(status != -1)
-    //     return !status;
+    if(status != -1)
+    {
+        status = builtin_env_cmd(cmd);
+    }
     pid_t pid, w_pid;
-    int ret;
+    int ret, exec;
 
     pid = fork();
     if(pid < 0)
@@ -312,8 +317,12 @@ int execute(struct command cmd, int fd_in, int fd_out, int fd_err)
         fd_out=dup2(fd_out,STDOUT_FILENO);
         fd_err=dup2(fd_err,STDERR_FILENO);
         
-        status = builtin_cmd(cmd);
-        if(status == -1)
+        if(status == 0)
+        {
+            exec = 1;
+            status = builtin_cmd(cmd);
+        }
+        if(status == -1 && exec == 0)
         {
             execvp(cmd.args[0], cmd.args);
         }
@@ -321,7 +330,7 @@ int execute(struct command cmd, int fd_in, int fd_out, int fd_err)
     }
     else
     {
-        deal_bg_fg(cmd);
+        job_ctrl(cmd);
         if(cmd.mode == BACKGROUND)
         {
             struct jobs* temp_job = get_new_job(job_array);
@@ -352,7 +361,11 @@ int execute(struct command cmd, int fd_in, int fd_out, int fd_err)
     }
     if(status == -1)
         return 1;
-    return !status;
+    if(status == 0)
+        return 1;
+    if(status == 1)
+        return 0;
+    return status;
 }
 
 int check_builtin(struct command cmd)
@@ -413,39 +426,19 @@ int check_builtin(struct command cmd)
     {
         return 0;
     }
+    else if(strcmp(cmd.args[0], "clr") == 0)
+    {
+        return 0;
+    }
     else
         return -1;
 }
 
 int builtin_cmd(struct command cmd)
 {
-    if(strcmp(cmd.args[0], "cd") == 0)
-    {
-        return shell_cd(cmd.args);
-    }
-    else if(strcmp(cmd.args[0], "time") == 0)
+    if(strcmp(cmd.args[0], "time") == 0)
     {
         return shell_time(cmd.args);
-    }
-    else if(strcmp(cmd.args[0], "umask") == 0)
-    {
-        return shell_umask(cmd.args);
-    }
-    else if(strcmp(cmd.args[0], "environ") == 0)
-    {
-        return shell_environ(cmd.args);
-    }
-    else if(strcmp(cmd.args[0], "set") == 0)
-    {
-        return shell_set(cmd.args);
-    }
-    else if(strcmp(cmd.args[0], "unset") == 0)
-    {
-        return shell_unset(cmd.args);
-    }
-    else if(strcmp(cmd.args[0], "exec") == 0)
-    {
-        return shell_exec(cmd.args);
     }
     else if(strcmp(cmd.args[0], "help") == 0)
     {
@@ -455,18 +448,40 @@ int builtin_cmd(struct command cmd)
     {
         return shell_exit(cmd.args);
     }
-    else if(strcmp(cmd.args[0], "jobs") == 0)
-    {
-        return shell_jobs(cmd.args);
-    }
-    else if(strcmp(cmd.args[0], "kill") == 0)
-    {
-        return shell_kill(cmd.args);
-    }
     else if(strcmp(cmd.args[0], "test") == 0)
     {
         return shell_test(cmd.args);
     }
+    else if(strcmp(cmd.args[0], "clr") == 0)
+    {
+        return shell_clr();
+    }
+    else if(strcmp(cmd.args[0], "environ") == 0)
+    {
+        return shell_environ(cmd.args);
+    }
+    else
+        return -1;
+}
+
+int builtin_env_cmd(struct command cmd)
+{
+    if(strcmp(cmd.args[0], "cd") == 0)
+    {
+        return shell_cd(cmd.args);
+    }
+    else if(strcmp(cmd.args[0], "umask") == 0)
+    {
+        return shell_umask(cmd.args);
+    }
+    else if(strcmp(cmd.args[0], "set") == 0)
+    {
+        return shell_set(cmd.args);
+    }
+    else if(strcmp(cmd.args[0], "unset") == 0)
+    {
+        return shell_unset(cmd.args);
+    }    
     else if(strcmp(cmd.args[0], "continue") == 0)
     {
         return shell_continue();
@@ -474,6 +489,14 @@ int builtin_cmd(struct command cmd)
     else if(strcmp(cmd.args[0], "shift") == 0)
     {
         return shell_shift(cmd.args);
+    }
+    else if(strcmp(cmd.args[0], "exec") == 0)
+    {
+        return shell_exec(cmd.args);
+    }
+    else if(strcmp(cmd.args[0], "kill") == 0)
+    {
+        return shell_kill(cmd.args);
     }
     else
         return -1;
@@ -535,7 +558,7 @@ int shell_set(char** args)
 {
     if(args[1] == NULL)
     {
-        shell_environ(args);
+        printf("用法 set A OR set A B\n");
     }
     else if(args[2] == NULL)
     {
@@ -748,6 +771,12 @@ int shell_shift(char** args)
     }
     free(s_arg_len);
     free(para);
+    return 0;
+}
+
+int shell_clr()
+{
+    printf("\033[H\033[J");
     return 0;
 }
 

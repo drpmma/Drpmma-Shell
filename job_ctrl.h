@@ -39,7 +39,7 @@ struct jobs* get_new_job();
 struct jobs* get_job_byID(int id);
 struct jobs* get_job_byPID(pid_t pid);
 int check_bg_fg(char** args);
-void deal_bg_fg(struct command cmd);
+void job_ctrl(struct command cmd);
 int shell_jobs(char** args);
 int shell_kill(char** args);
 int shell_fg(struct command cmd);

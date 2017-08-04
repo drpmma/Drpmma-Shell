@@ -29,7 +29,7 @@ int check_bg_fg(char** args)
         return FOREGROUND;
 }
 
-void deal_bg_fg(struct command cmd)
+void job_ctrl(struct command cmd)
 {
     if(strcmp(cmd.args[0], "fg") == 0)
     {
@@ -38,6 +38,10 @@ void deal_bg_fg(struct command cmd)
     else if(strcmp(cmd.args[0], "bg") == 0)
     {
         shell_bg(cmd);
+    }
+    else if(strcmp(cmd.args[0], "jobs") == 0)
+    {
+        shell_jobs(cmd.args);
     }
 }
 
@@ -101,24 +105,23 @@ int shell_kill(char** args)
     else
     {
         pid_t pid = atoi(args[1]);
-        kill(pid, SIGKILL);
-        // if(pid == 0)
-        // {
-        //     printf("myshell:参数错误\n");
-        // }
-        // else
-        // {
-        //     struct jobs* temp_job = get_job_byPID(pid);
-        //     if(temp_job != NULL)
-        //     {
-        //         kill(temp_job->pid, SIGKILL);
-        //         change_state(temp_job->pid, JOB_STATE_STOP);
-        //     }
-        //     else
-        //     {
-        //         printf("myshell:不存在这样的pid\n");
-        //     }
-        // }
+        if(pid == 0)
+        {
+            printf("myshell:参数错误\n");
+        }
+        else
+        {
+            struct jobs* temp_job = get_job_byPID(pid);
+            if(temp_job != NULL)
+            {
+                kill(temp_job->pid, SIGKILL);
+                change_state(temp_job->pid, JOB_STATE_STOP);
+            }
+            else
+            {
+                kill(pid, SIGKILL);
+            }
+        }
     }
     return 0;
 }
