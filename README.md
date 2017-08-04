@@ -3,6 +3,7 @@
 * bg
 * fg
 * jobs
+* kill
 * &
 * \> < >>
 * |
@@ -37,6 +38,12 @@
 ### display status of jobs in the current session
 ```bash
     jobs
+```
+
+## kill
+### kill a process by id or pid
+```bash
+    kill %id OR kill pid
 ```
 ## &
 ### run jobs in the background

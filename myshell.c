@@ -12,6 +12,7 @@ void main_loop()
     char** cmds;
     struct command* cmd_array;
     char** args;
+    char user_name[ARGUMENT_SIZE];
     int status = 1;
     int i;
     int file_flag = 0;
@@ -24,7 +25,9 @@ void main_loop()
         getcwd(file_path, FILE_PATH_LENGTH);
         
         set_env_pid();
-        printf("myshell:%s>", file_path);
+
+        gethostname(user_name, ARGUMENT_SIZE);        
+        printf(CYAN"[Drpmma's Shell] "LIGHT_BLUE"%s"LIGHT_GRAY":"GREEN"%s>"WHITE, user_name, file_path);
 
         line = read_line(&file_flag);
         cmds = split_str(line, COMMAND_SIZE, "|");
@@ -215,7 +218,10 @@ void parse_var(char** args)
             env_name = malloc(strlen(args[i] + 1));
             strcpy(env_name, args[i] + 1);
             env = getenv(env_name);
-            strcpy(args[i], env);
+            if(env != NULL)
+                strcpy(args[i], env);
+            else
+                printf("%s不存在\n", args[i]);
             free(env_name);
         }
     }
@@ -223,10 +229,6 @@ void parse_var(char** args)
 
 void parse_quote(char** args)
 {
-    if( strcmp(args[0], "kill") == 0 || strcmp(args[0], "fg") == 0 || strcmp(args[0], "bg") == 0)
-    {
-        return;
-    }
     int quote_idx_l = -1, quote_idx_r = -1;
     int find = 0;
     for(int i = 0; args[i] != NULL; i++)
@@ -253,7 +255,10 @@ void parse_quote(char** args)
             args[i] = NULL;
         }
     }
-
+    if( strcmp(args[0], "kill") == 0 || strcmp(args[0], "fg") == 0 || strcmp(args[0], "bg") == 0)
+    {
+        return;
+    }
     char* env = NULL;
     for(int i = 0; args[i] != NULL; i++)
     {
@@ -261,14 +266,15 @@ void parse_quote(char** args)
         {
             if(args[i][1] == '$' || args[i][0] == '$')
             {
-                env = malloc(strlen(args[i]));
-                memset(env, 0, strlen(args[i]));
+                env = malloc(ARGUMENT_SIZE);
+                memset(env, 0, ARGUMENT_SIZE);
                 int k = 0;
                 for(int j = 0; args[i][j] != 0; j++)
                 {
                     if(args[i][j] != '\"')
                         env[k++] = args[i][j];
                 }
+                env[k] = 0;
                 strcpy(args[i], env);
                 free(env);
             }
@@ -290,8 +296,8 @@ int execute(struct command cmd, int fd_in, int fd_out, int fd_err)
         status = builtin_env_cmd(cmd);
     }
     pid_t pid, w_pid;
-    int ret, exec;
-
+    int ret;
+    printf("status = %d\n", status);
     pid = fork();
     if(pid < 0)
     {
@@ -317,12 +323,11 @@ int execute(struct command cmd, int fd_in, int fd_out, int fd_err)
         fd_out=dup2(fd_out,STDOUT_FILENO);
         fd_err=dup2(fd_err,STDERR_FILENO);
         
-        if(status == 0)
+        if(status == -2)
         {
-            exec = 1;
             status = builtin_cmd(cmd);
         }
-        if(status == -1 && exec == 0)
+        if(status == -1)
         {
             execvp(cmd.args[0], cmd.args);
         }
@@ -461,7 +466,7 @@ int builtin_cmd(struct command cmd)
         return shell_environ(cmd.args);
     }
     else
-        return -1;
+        return -3;
 }
 
 int builtin_env_cmd(struct command cmd)
@@ -499,7 +504,7 @@ int builtin_env_cmd(struct command cmd)
         return shell_kill(cmd.args);
     }
     else
-        return -1;
+        return -2;
 }
 
 int shell_cd(char** args)
@@ -695,6 +700,11 @@ int shell_test(char** args)
             printf("错误的参数\n");
             return 0;
         }
+    }
+    else
+    {
+        printf("错误的参数\n");
+        return 0;
     }
     if(res == 0)
         printf("false\n");
