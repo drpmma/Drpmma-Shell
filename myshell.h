@@ -18,8 +18,8 @@
 #define FILE_PATH_LENGTH 100
 #define PATH_LENGTH 500
 #define COMMAND_NUMBER 20
-#define COMMAND_SIZE 64
-#define ARGUMENT_SIZE 32
+#define COMMAND_SIZE 1024
+#define ARGUMENT_SIZE 256
 
 #define TEST_B 0
 #define TEST_C 1
@@ -58,7 +58,7 @@
 #define BROWN        "\033[0;33m"
 #define YELLOW       "\033[1;33m"
 #define LIGHT_GRAY   "\033[0;37m"
-#define WHITE        "\033[1;37m"
+#define WHITE        "\033[0;37;37m"
 
 extern char** environ;
 
@@ -88,7 +88,7 @@ int test_logic(char** args, int flag);
 
 void main_loop();
 void init();
-char* read_line(int* pfile_flag);
+char* read_line(int* pfile_flag, FILE* fp);
 void parse_var(char** args);
 void parse_quote(char** args);
 char** split_str(char* line, int size, char* delims);

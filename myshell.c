@@ -3,7 +3,7 @@
 int main(int argc, char *argv[])
 {
     set_arg(argc, argv);
-    main_loop();                          // 主循环
+    main_loop();                          // main loop of shell
 }
 
 void main_loop()
@@ -17,96 +17,98 @@ void main_loop()
     int i;
     int file_flag = 0;
 
+    char* cmd_file = getenv("1");                           // get the possible file name
+    FILE* fp = fopen(cmd_file, "r");
+    gethostname(user_name, ARGUMENT_SIZE);                  // get the computer host name
+
     init();
-    while(status && !file_flag)
+    while(status && file_flag != -1)                        // file_flag to determin if the file read to end, status is the process exit status
     {
-        cmd_array = malloc(COMMAND_NUMBER * sizeof(struct command));
+        cmd_array = malloc(COMMAND_NUMBER * sizeof(struct command));        // allocate space
         memset(cmd_array, 0, COMMAND_NUMBER * sizeof(struct command));
         getcwd(file_path, FILE_PATH_LENGTH);
         
-        set_env_pid();
+        set_env_pid();                                      // set the $$
 
-        gethostname(user_name, ARGUMENT_SIZE);        
-        printf(CYAN"[Drpmma's Shell] "LIGHT_BLUE"%s"LIGHT_GRAY":"GREEN"%s>"WHITE, user_name, file_path);
+        if(file_flag == 0)                                  // print the color prompt, including user name and current file path
+            printf(CYAN"[Drpmma's Shell] "LIGHT_BLUE"%s"LIGHT_GRAY":"GREEN"%s> "WHITE, user_name, file_path);
 
-        line = read_line(&file_flag);
-        cmds = split_str(line, COMMAND_SIZE, "|");
+        line = read_line(&file_flag, fp);                   // read the input
+        cmds = split_str(line, COMMAND_SIZE, "|");          // deal the | (pipe)
         for(i = 0; cmds[i] != NULL; i++)
         {
-            args = split_str(cmds[i], ARGUMENT_SIZE, " \t\n");
-            cmd_array[i].mode = check_bg_fg(args);
-            cmd_array[i].args = args;
+            args = split_str(cmds[i], ARGUMENT_SIZE, " \t\n");  // deal the space delims
+            cmd_array[i].mode = check_bg_fg(args);          // set command mode
+            cmd_array[i].args = args;                       // args
         }
         if(i == 1)
-            status = execute(cmd_array[0], 0, 1 ,2);
+            status = execute(cmd_array[0], 0, 1 ,2);        // if there no pipe
         else
         {
-            parse_pipe(cmd_array, i);
+            parse_pipe(cmd_array, i);                       // else parse pipe
         }
-        clear_buffer(cmd_array, line, cmds);
+        clear_buffer(cmd_array, line, cmds);                // clear cmd space
     }
-    free(new_PATH);
+    free(new_PATH);                                         // clear path
     free(file_path);
-    clear_job_all();
+    clear_job_all();                                        // clear job
 }
 
 void init()
 {
-    file_path=(char*)malloc(FILE_PATH_LENGTH);
+    file_path=(char*)malloc(FILE_PATH_LENGTH);          // set the file path
     getcwd(file_path, FILE_PATH_LENGTH);
 
-    PATH = getenv("PATH");
+    PATH = getenv("PATH");                              // get environment variables PATH
     new_PATH = malloc(PATH_LENGTH);
     memset(new_PATH, 0, PATH_LENGTH);
     strcat(new_PATH, "PATH=");
     strcat(new_PATH, PATH);
     strcat(new_PATH, ":");
     strcat(new_PATH, file_path);
-    putenv(new_PATH);
+    putenv(new_PATH);                                   // set the myshell to it, so it can run batchfile
 
+    setenv("SHELLPATH", file_path, 0);                  // set MYSHELL to environment variables
     strcat(file_path, "/myshell");
     setenv("MYSHELL", file_path, 0);
     
-    HOME = getenv("HOME");
+    HOME = getenv("HOME");                              // set HOME environment variables
 
-    job_array = malloc(JOB_NUMBER * sizeof(struct jobs));
-    job_init(job_array);
+    job_array = malloc(JOB_NUMBER * sizeof(struct jobs));   // allocate job_array
+    job_init(job_array);                                    // jobs init
 
-    signals();
+    signals();                                          // parent process signals
 }
 
-char* read_line(int* pfile_flag)
+char* read_line(int* pfile_flag, FILE* fp)
 {
     char *line = NULL;
     ssize_t bufsize = 0;
     char* cmd_name = getenv("0");
-    char* cmd_file = getenv("1");
-    if(strcmp(cmd_name, "myshell") == 0 && test_file(cmd_file, TEST_R))
+    if(strcmp(cmd_name, "myshell") == 0 && fp != NULL)  // if it's running batchfile
     {
-        FILE* fp = fopen(cmd_file, "r");
-        getline(&line, &bufsize, fp);
-        *pfile_flag = 1;
+        *pfile_flag = getline(&line, &bufsize, fp);     // read till end
     }
     else
     {
-        getline(&line, &bufsize, stdin);            // 通过getline函数可以方便的读入一行
+        getline(&line, &bufsize, stdin);            // can read a line easily by getline()
     }
     return line;
 }
 
-int parse_redirect(char** args, int* pfd_in, int* pfd_out)
+int parse_redirect(char** args, int* pfd_in, int* pfd_out)      // parse redirect
 {
     int is_append = 0;
-    int flags;                              // open函数的flag
-    int mode = S_IRUSR | S_IWUSR;           // open函数的mode
+    int flags;                              // open flag
+    int mode = S_IRUSR | S_IWUSR;           // open mode
     for (int i = 0; args[i] != NULL; i++) 
     {
         if ((strcmp(args[i], ">") == 0) || (strcmp(args[i], "<") == 0)) {
-            flags = (strcmp(args[i], ">") == 0) ? O_WRONLY | O_CREAT | O_TRUNC : O_RDONLY;
+            flags = (strcmp(args[i], ">") == 0) ? O_WRONLY | O_CREAT | O_TRUNC : O_RDONLY;  // determin > or < 
             int fd_tmp = open(args[i + 1], flags, mode);
             if (fd_tmp < 0) {
                 perror("run_shell: start_prog");
-                if (errno != ENOENT)        // 检查ENOENT错误
+                if (errno != ENOENT)        // check ENOENT
                     exit(EXIT_FAILURE);
                 return 1;
             }
@@ -114,9 +116,9 @@ int parse_redirect(char** args, int* pfd_in, int* pfd_out)
             *pfd_out = (strcmp(args[i], ">") == 0) ? fd_tmp : *pfd_out;
             args[i] = NULL;
         }
-        else if(strcmp(args[i], ">>") == 0)
+        else if(strcmp(args[i], ">>") == 0)                 // check >>
         {
-            flags = O_WRONLY | O_CREAT | O_APPEND;
+            flags = O_WRONLY | O_CREAT | O_APPEND;          // append in the end
             int fd_tmp = open(args[i + 1], flags, mode);
             if (fd_tmp < 0) {
                 perror("run_shell: start_prog");
@@ -130,11 +132,11 @@ int parse_redirect(char** args, int* pfd_in, int* pfd_out)
     }
 }
 
-int parse_pipe(struct command* cmd_array, int size)
+int parse_pipe(struct command* cmd_array, int size)             // parse pipe
 {
     int i;
-    int p1[2];   /* Pipe for parent */
-    int p2[2];   /* Pipe for child */
+    int p1[2];   // Pipe for parent
+    int p2[2];   // Pipe for child
 
     if (pipe(p1))
         perror("myshell: split_line");
@@ -143,12 +145,13 @@ int parse_pipe(struct command* cmd_array, int size)
     close(p1[1]);
 
     for (i = 1; i < size - 1; i++) {
-        /* Read from parent's pipe, write to child's */
-        /* Close the pipe we read from, and the one we write to */
+        //  Read from parent's pipe, write to child's 
+        // Close the pipe we read from, and the one we write to
         if (i % 2) 
         {
             if (pipe(p2))
                 perror("myshell: split_line");
+
             execute(cmd_array[i], p1[0], p2[1], 2);
             close(p1[0]);
             close(p2[1]);
@@ -168,34 +171,30 @@ int parse_pipe(struct command* cmd_array, int size)
     if (i % 2) 
     {
         execute(cmd_array[i], p1[0], 1, 2);
-
         close(p1[0]);
-    } else 
+    } 
+    else 
     {
         execute(cmd_array[i], p2[0], 1, 2);
         close(p2[0]);
     }
 
-    /* Free every command struct in commands */
-    // free_commands(commands, nchunks);
-    // free(commands);
-
     return 0;
 }
 
-char** split_str(char* line, int size, char* delims)
+char** split_str(char* line, int size, char* delims)            // split line by delims
 {
     int buf_size = size, pos = 0;
     char* arg;
     char** args = malloc(size * sizeof(char*));
 
-    arg = strtok(line, delims);
+    arg = strtok(line, delims);                                 // split by delims by strtok() function
     while(arg != NULL)
     {
         args[pos] = arg;
         pos++;
 
-        if(pos >= buf_size)
+        if(pos >= buf_size)                                     // if over the buf size, reallocate it
         {
             buf_size += size;
             args = realloc(args, buf_size * sizeof(char*));
@@ -207,19 +206,19 @@ char** split_str(char* line, int size, char* delims)
     return args;
 }
 
-void parse_var(char** args)
+void parse_var(char** args)                                     // parse environment variables as $*
 {
     char* env_name;
     char* env;
     for(int i = 0; args[i] != NULL; i++)
     {
-        if(args[i][0] == '$')
+        if(args[i][0] == '$')                                   // if it begins with '$'
         {
-            env_name = malloc(strlen(args[i] + 1));
+            env_name = malloc(strlen(args[i] + 1) + 1);
             strcpy(env_name, args[i] + 1);
             env = getenv(env_name);
             if(env != NULL)
-                strcpy(args[i], env);
+                args[i] = env;                                  // substitute it with environment variables
             else
                 printf("%s不存在\n", args[i]);
             free(env_name);
@@ -227,44 +226,41 @@ void parse_var(char** args)
     }
 }
 
-void parse_quote(char** args)
+void parse_quote(char** args)                                   // parse the quote in a simple version
 {
     int quote_idx_l = -1, quote_idx_r = -1;
     int find = 0;
     for(int i = 0; args[i] != NULL; i++)
     {
-        if(args[i][0] == '\"')
+        if(args[i][0] == '\"')                                  // if find "
         {
             if(find == 0)
             {
                 find = 1;
-                quote_idx_l = i;
+                quote_idx_l = i;                                // set left index
             }
         }
         int len = strlen(args[i]);
-        if(args[i][len - 1] == '\"')
+        if(args[i][len - 1] == '\"')                            // find the second "
         {
-            quote_idx_r = i;
+            quote_idx_r = i;                                    // set right index
         }
     }
-    if(quote_idx_l != -1 && quote_idx_r != -1)
+    if(quote_idx_l != -1 && quote_idx_r != -1)                  // if find both left and right quotes
     {
         for(int i = quote_idx_l + 1; i <= quote_idx_r; i++)
         {
-            strcat(args[quote_idx_l], args[i]);
+            sprintf(args[quote_idx_l], "%s %s", args[quote_idx_l], args[i]);    // concatenate the left quote and the right quote into one arg
             args[i] = NULL;
         }
     }
-    if( strcmp(args[0], "kill") == 0 || strcmp(args[0], "fg") == 0 || strcmp(args[0], "bg") == 0)
-    {
-        return;
-    }
+
     char* env = NULL;
     for(int i = 0; args[i] != NULL; i++)
     {
-        if(args[i][0] == '\"' || args[i][0] == '$')
+        if(args[i][0] == '\"' || args[i][0] == '$')                 // deal the $ in the quote
         {
-            if(args[i][1] == '$' || args[i][0] == '$')
+            if(args[i][1] == '$' || args[i][0] == '$')              // so shell can parse the environment variables in the form of "$1"
             {
                 env = malloc(ARGUMENT_SIZE);
                 memset(env, 0, ARGUMENT_SIZE);
@@ -282,41 +278,42 @@ void parse_quote(char** args)
     }
 }
 
-int execute(struct command cmd, int fd_in, int fd_out, int fd_err)
+int execute(struct command cmd, int fd_in, int fd_out, int fd_err)      // execute the command
 {
     int status;
     if(cmd.args[0] == NULL)
         return 1;
-    parse_quote(cmd.args);
-    parse_var(cmd.args);
-    parse_redirect(cmd.args, &fd_in, &fd_out);
-    status = check_builtin(cmd);
+
+    parse_quote(cmd.args);                                              // parse quote
+    parse_var(cmd.args);                                                // parse environment variables
+    parse_redirect(cmd.args, &fd_in, &fd_out);                          // parse redirect
+
+    status = check_builtin(cmd);                                        // check the whether the command is built in.
     if(status != -1)
     {
-        status = builtin_env_cmd(cmd);
-    }
-    pid_t pid, w_pid;
+        status = builtin_env_cmd(cmd);                                  // run the command relevant to environment variables
+    }                                                                   // because environment variables set by the children process will not live in parent process
+    pid_t pid, w_pid;                                                   // so run it in parent process
     int ret;
-    printf("status = %d\n", status);
-    pid = fork();
+    pid = fork();                                   // create child process
     if(pid < 0)
     {
         perror("myshell");
     }
-    else if(pid == 0)
+    else if(pid == 0)                               // child process
     {
-        signal(SIGINT, SIG_DFL);
+        signal(SIGINT, SIG_DFL);                    // deal singals as default
         signal(SIGTSTP, SIG_DFL);
         signal(SIGCONT, SIG_DFL);
 
-        if(fd_out==STDIN_FILENO)
-        { /* Move stdout out of the way of stdin */
-            fd_out=dup(fd_out);
+        if(fd_out==STDIN_FILENO)                    // deal fd
+        {
+            fd_out=dup(fd_out);                     // Move stdout out of the way of stdin
         }
 
         while(fd_err==STDIN_FILENO || fd_err==STDOUT_FILENO)
-        { /* Move stderr out of the way of stdin/stdout */
-            fd_err=dup(fd_err);
+        {
+            fd_err=dup(fd_err);                     // Move stderr out of the way of stdin/stdout
         }
 
         fd_in=dup2(fd_in,STDIN_FILENO);
@@ -325,19 +322,19 @@ int execute(struct command cmd, int fd_in, int fd_out, int fd_err)
         
         if(status == -2)
         {
-            status = builtin_cmd(cmd);
+            status = builtin_cmd(cmd);              // run other built in commands
         }
         if(status == -1)
         {
-            execvp(cmd.args[0], cmd.args);
+            execvp(cmd.args[0], cmd.args);          // run external commands
         }
         exit(status);
     }
     else
     {
         job_ctrl(cmd);
-        if(cmd.mode == BACKGROUND)
-        {
+        if(cmd.mode == BACKGROUND)                  // if the process running in background
+        {                                           // not wait for it
             struct jobs* temp_job = get_new_job(job_array);
             temp_job->pid = pid;
             temp_job->name = malloc(NAME_SIZE);
@@ -350,18 +347,18 @@ int execute(struct command cmd, int fd_in, int fd_out, int fd_err)
             change_state(pid, JOB_STATE_RUN);
             printf("[%d] %d\n", temp_job->id, temp_job->pid);
         }
-        else
+        else                                        // else wait for it to end or stop
         {
             waitpid(pid, &ret, WUNTRACED);
-            if(WIFSTOPPED(ret))
+            if(WIFSTOPPED(ret))                     // if stop, handle stop func
             {
                 handle_stop(cmd, pid);
             }
-            if(WIFEXITED(ret))
+            if(WIFEXITED(ret))                      // set the exit value into environment variables
             {
                 set_env_status(WEXITSTATUS(ret));
             }
-            status = WEXITSTATUS(ret);
+            status = WEXITSTATUS(ret);              // set exit balue
         }
     }
     if(status == -1)
@@ -370,10 +367,10 @@ int execute(struct command cmd, int fd_in, int fd_out, int fd_err)
         return 1;
     if(status == 1)
         return 0;
-    return status;
+    return status;                                  // return status
 }
 
-int check_builtin(struct command cmd)
+int check_builtin(struct command cmd)                           // check whether the command is built in
 {
     if(strcmp(cmd.args[0], "cd") == 0)
     {
@@ -436,10 +433,10 @@ int check_builtin(struct command cmd)
         return 0;
     }
     else
-        return -1;
+        return -1;                                          // else return -1
 }
 
-int builtin_cmd(struct command cmd)
+int builtin_cmd(struct command cmd)                             // run part of built in cmd
 {
     if(strcmp(cmd.args[0], "time") == 0)
     {
@@ -469,7 +466,7 @@ int builtin_cmd(struct command cmd)
         return -3;
 }
 
-int builtin_env_cmd(struct command cmd)
+int builtin_env_cmd(struct command cmd)                         // run built in cmd relevant to environment variables
 {
     if(strcmp(cmd.args[0], "cd") == 0)
     {
@@ -507,13 +504,13 @@ int builtin_env_cmd(struct command cmd)
         return -2;
 }
 
-int shell_cd(char** args)
+int shell_cd(char** args)                           // cd
 {
-    if(args[1] == NULL)
+    if(args[1] == NULL)                             // if as cd, change dir to HOME
     {
         chdir(HOME);
     }
-    else
+    else                                            // else to the argument dir
     {
         if(chdir(args[1]) != 0)
             perror("myshell");
@@ -521,7 +518,7 @@ int shell_cd(char** args)
     return 0;
 }
 
-int shell_time(char** args)
+int shell_time(char** args)                         // display the time
 {
     time_t now;
     struct tm* time_now;
@@ -531,25 +528,25 @@ int shell_time(char** args)
     return 0;
 }
 
-int shell_umask(char** args)
+int shell_umask(char** args)                        // set the set file mode creation mask
 {
     mode_t new_umask = 0666, old_umask;
     old_umask = umask(new_umask);
-    if(args[1] == NULL)
+    if(args[1] == NULL)                             // if no arguments, simplily display it
     {
-        printf("%04o\n", old_umask);
+        printf("%04o\n", old_umask);                // restore it
         umask(old_umask);
     }
-    else
+    else                                            // ohtherwise, change it 
     {
-        new_umask = strtoul(args[1], 0, 8);
+        new_umask = strtoul(args[1], 0, 8);         // set the argument to an octal formats
         printf("%04o\n", new_umask);
         umask(new_umask);
     }
     return 0;
 }
 
-int shell_environ(char** args)
+int shell_environ(char** args)                      // display all the environment variables
 {
     int i = 0;
     for(i = 0; environ[i] != NULL; i++)
@@ -559,24 +556,24 @@ int shell_environ(char** args)
     return 0;
 }
 
-int shell_set(char** args)
+int shell_set(char** args)                          // set the environment variables
 {
     if(args[1] == NULL)
     {
         printf("用法 set A OR set A B\n");
     }
-    else if(args[2] == NULL)
+    else if(args[2] == NULL)                        // if no second argument, set it to NULL
     {
         setenv(args[1], "NULL", 0);
     }
-    else
+    else                                            // else set it to argument
     {
         setenv(args[1], args[2], 1);
     }
     return 0;
 }
 
-int shell_unset(char** args)
+int shell_unset(char** args)                        // unset the environment variables
 {
     if(args[1] != NULL)
     {
@@ -585,28 +582,30 @@ int shell_unset(char** args)
     return 0;
 }
 
-int shell_exec(char** args)
+int shell_exec(char** args)                         // substitue the shell by exec
 {
     execvp(args[1], args + 1);
 }
 
-int shell_help(char** args)
+int shell_help(char** args)                         // display README by more
 {
-    char* cmd[] = {"more", "README.md"};
+    char* shell_path = getenv("SHELLPATH");
+    strcat(shell_path, "/README.md");
+    char* cmd[] = {"more", shell_path};
     execvp(cmd[0], cmd);
 }
 
-int shell_exit(char** args)
+int shell_exit(char** args)                         // exit
 {
     return 1;
 }
 
-int shell_test(char** args)
+int shell_test(char** args)                         // test command
 {
     int res;
-    if(args[1][0] == '-')
+    if(args[1][0] == '-')                           // as the form of test -f file
     {
-        switch(args[1][1])
+        switch(args[1][1])                          // test files
         {
             case 'd':
             {
@@ -669,9 +668,9 @@ int shell_test(char** args)
             // }
         }
     }
-    else if(args[2][0] == '-')
+    else if(args[2][0] == '-')                          // as the form test 1 -gt 2
     {
-        if(strcmp(args[2], "-eq") == 0)
+        if(strcmp(args[2], "-eq") == 0)                 // test logically
         {
             res = test_logic(args, TEST_EQ);
         }
@@ -713,21 +712,21 @@ int shell_test(char** args)
     return 0;
 }
 
-int shell_continue()
+int shell_continue()                                // a simple version of continue
 {
     char* status_string = IntToString(RETURN_CONTINUE);
     setenv("?", status_string, 1);
-    printf("$?=%s\n", getenv("?"));
+    printf("$?=%s\n", getenv("?"));                 // change the environment variables $?
     return 0;
 }
 
-int shell_shift(char** args)
+int shell_shift(char** args)                        // move popositional parameters
 {
     int num;
-    if(args[1] == NULL)
+    if(args[1] == NULL)                             // if no second, set num to 1
         num = 1;
     else
-        num = atoi(args[1]);
+        num = atoi(args[1]);                        // otherwise, set it to arg
     char* arg_list = getenv("@");
     char** para = split_str(arg_list, ARGUMENT_SIZE, " ");
     int len = 0;
@@ -738,28 +737,28 @@ int shell_shift(char** args)
     len++;
     char* s_arg_len;
     char buf[2];
-    if(num >= len)
-    {
+    if(num >= len)                                  // if num larger than parameters length
+    {                                               // unset them
         s_arg_len = IntToString(0);
         setenv("@", "", 1);
         setenv("*", "", 1);
         setenv("#", s_arg_len, 1);
     }
-    else
+    else                                            // otherwise shift the corresponding numbers
     {
         arg_list = malloc(ARGUMENT_SIZE);
         memset(arg_list, 0, ARGUMENT_SIZE);
         s_arg_len = IntToString(len - num);
         for(int i = 0; para[i] != NULL; i++)
         {
-            if(i + num < len)
+            if(i + num < len)                       // move
             {
                 para[i] = para[i + num];
                 char* num_s = IntToString(i + 1);
                 setenv(num_s, para[i], 1);
                 free(num_s);
             }
-            else
+            else                                    // set other to null
             {
                 char* num_s = IntToString(i + 1);
                 unsetenv(num_s);
@@ -767,7 +766,7 @@ int shell_shift(char** args)
                 para[i] = NULL;
             }
         }
-        for(int i = 0; i < len - num; i++)
+        for(int i = 0; i < len - num; i++)          // concatenate the parameters
         {
             buf[0] = ' ';
             buf[1] = 0;
@@ -784,13 +783,13 @@ int shell_shift(char** args)
     return 0;
 }
 
-int shell_clr()
+int shell_clr()                                     // clear shell screen
 {
     printf("\033[H\033[J");
     return 0;
 }
 
-int test_dir(char* arg)
+int test_dir(char* arg)                             // test dir
 {
     DIR* dir = NULL;
     struct stat dir_info;
@@ -800,7 +799,7 @@ int test_dir(char* arg)
     {
         return 0;
     }
-    if(arg[0] != '/' && arg[0] != '~')
+    if(arg[0] != '/' && arg[0] != '~')              // produce the current path
     {
         getcwd(path, FILE_PATH_LENGTH);
         int len = strlen(path);
@@ -810,7 +809,7 @@ int test_dir(char* arg)
         strcpy(path + len, arg);
         printf("%s\n", path);
     }
-    else if(arg[0]=='~')
+    else if(arg[0]=='~')                             // deal ~
     {
         strcpy(path, HOME);
         strcpy(path + strlen(HOME), arg + 1);
@@ -825,7 +824,7 @@ int test_dir(char* arg)
     }
     else
     {
-        if(S_ISDIR(dir_info.st_mode))
+        if(S_ISDIR(dir_info.st_mode))               // check whether it's dir
         {
             return 1;
         }
@@ -836,7 +835,7 @@ int test_dir(char* arg)
     }
 }
 
-int test_file(char* arg, int flag)
+int test_file(char* arg, int flag)                  // test file
 {
     DIR* dir = NULL;
     struct stat dir_info;
@@ -846,7 +845,7 @@ int test_file(char* arg, int flag)
     {
         return 0;
     }
-    if(arg[0] != '/' && arg[0] != '~')
+    if(arg[0] != '/' && arg[0] != '~') 
     {
         getcwd(path, FILE_PATH_LENGTH);
         int len = strlen(path);
@@ -856,7 +855,7 @@ int test_file(char* arg, int flag)
         strcpy(path + len, arg);
         printf("%s\n", path);
     }
-    else if(arg[0]=='~')
+    else if(arg[0]=='~')                        // deal ~
     {
         strcpy(path, HOME);
         strcpy(path + strlen(HOME), arg + 1);
@@ -872,11 +871,11 @@ int test_file(char* arg, int flag)
     }
     else
     {
-        switch(flag)
+        switch(flag)                        // check the file type by file flag
         {
             case TEST_B:
             {
-                if(S_ISBLK(dir_info.st_mode))
+                if(S_ISBLK(dir_info.st_mode))     // is block file
                 {
                     return 1;
                 }
@@ -885,7 +884,7 @@ int test_file(char* arg, int flag)
                     return 0;
                 }
             }
-            case TEST_C:
+            case TEST_C:                        // is character special
             {
                 if(S_ISCHR(dir_info.st_mode))
                 {
@@ -896,11 +895,11 @@ int test_file(char* arg, int flag)
                     return 0;
                 }
             }
-            case TEST_E:
+            case TEST_E:                        // whether exists
             {
                 return 1;
             }
-            case TEST_F:
+            case TEST_F:                        // whether a file
             {
                 if(S_ISREG(dir_info.st_mode))
                 {
@@ -911,7 +910,7 @@ int test_file(char* arg, int flag)
                     return 0;
                 }
             }
-            case TEST_H: case TEST_L:
+            case TEST_H: case TEST_L:           // whether a symbolic link
             {
                 if(S_ISREG(dir_info.st_mode))
                 {
@@ -922,7 +921,7 @@ int test_file(char* arg, int flag)
                     return 0;
                 }
             }
-            case TEST_P:
+            case TEST_P:                        // whether a name pipe
             {
                 if(S_ISFIFO(dir_info.st_mode))
                 {
@@ -933,7 +932,7 @@ int test_file(char* arg, int flag)
                     return 0;
                 }
             }
-            case TEST_R:
+            case TEST_R:                        // whether can be read
             {
                 if(access(path, R_OK) == 0)
                 {
@@ -944,7 +943,7 @@ int test_file(char* arg, int flag)
                     return 0;
                 }
             }
-            case TEST_W:
+            case TEST_W:                        // whether can be written
             {
                 if(access(path, W_OK) == 0)
                 {
@@ -955,7 +954,7 @@ int test_file(char* arg, int flag)
                     return 0;
                 }
             }
-            case TEST_X:
+            case TEST_X:                        // whether can be execute
             {
                 if(access(path, X_OK) == 0)
                 {
@@ -970,40 +969,40 @@ int test_file(char* arg, int flag)
     }
 }
 
-int test_logic(char** args, int flag)
+int test_logic(char** args, int flag)               // test logic
 {
     int num1 = atoi(args[1]);
     int num2 = atoi(args[3]);
     switch(flag)
     {
-        case TEST_EQ:
+        case TEST_EQ:                               // equal
         {
             return num1 == num2;
         }
-        case TEST_GE:
+        case TEST_GE:                               // great equal
         {
             return num1 >= num2;
         }
-        case TEST_GT:
+        case TEST_GT:                               // great than
         {
             return num1 > num2;
         }
-        case TEST_LE:
+        case TEST_LE:                               // less equal
         {
             return num1 <= num2;
         }
-        case TEST_LT:
+        case TEST_LT:                               // less than
         {
             return num1 < num2;
         }
-        case TEST_NE:
+        case TEST_NE:                               // not equal
         {
             return num1 != num2;
         }
     }
 }
 
-void clear_buffer(struct command* cmd_array, char* line, char** cmds)
+void clear_buffer(struct command* cmd_array, char* line, char** cmds)     // clear buffer
 {
     free(line);
     free(cmds);
@@ -1014,33 +1013,33 @@ void clear_buffer(struct command* cmd_array, char* line, char** cmds)
     free(cmd_array);
 }
 
-void signals()
+void signals()                                  // deal parent signals
 {
-    if(signal(SIGCHLD, handle_child) == SIG_ERR)
+    if(signal(SIGCHLD, handle_child) == SIG_ERR)        // handle child 
     {
         printf("signal error.\n");
         return;
     }
-    // signal(SIGINT, SIG_IGN);
+    signal(SIGINT, SIG_IGN);
     signal(SIGTSTP, SIG_IGN);
     signal(SIGCONT, SIG_DFL);
 }
 
-void set_arg(int argc, char* argv[])
+void set_arg(int argc, char* argv[])            // set the envrionment variable by argument parameters
 {
     char buf[2];
     char* arg_buf = IntToString(argc);
     char* arg_list = malloc(ARGUMENT_SIZE);
     memset(arg_list, 0, ARGUMENT_SIZE);
-    setenv("#", arg_buf, 1);
+    setenv("#", arg_buf, 1);                    // set num
     free(arg_buf);
-    for(int i = 0; argv[i] != 0; i++)
+    for(int i = 0; argv[i] != 0; i++)           // set argument list
     {
         if(i != 0)
         {
             buf[0] = ' ';
             buf[1] = 0;
-            strcat(arg_list, argv[i]);
+            strcat(arg_list, argv[i]);          // set parameters list
             strcat(arg_list, buf);
         }
         arg_buf = IntToString(i);
@@ -1052,21 +1051,21 @@ void set_arg(int argc, char* argv[])
     free(arg_list);
 }
 
-void set_env_pid()
+void set_env_pid()                              // set $$
 {
     char* pidstring = IntToString(getpid());
     setenv("$", pidstring, 1);
     free(pidstring);
 }
 
-void set_env_status(int status)
+void set_env_status(int status)                 // set $?
 {
     char* status_string = IntToString(status);
     setenv("?", status_string, 1);
     free(status_string);
 }
 
-char* IntToString(int i)
+char* IntToString(int i)                        // int to char*
 {
     char* buf = malloc(ARGUMENT_SIZE);
     memset(buf, 0, ARGUMENT_SIZE);

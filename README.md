@@ -22,6 +22,7 @@
 * shift
 * echo
 * myshell batchfile
+* $
 * other external command
 
 ## bg
@@ -61,6 +62,7 @@
 ### (pipe)
 ```bash
     COMMAND1 | COMMAND2
+    COMMAND1 | COMMAND2 | COMMAND3
 ```
 ## test
 ### check file type and compare values
@@ -156,6 +158,15 @@
 ### move popositional parameters
 ```bash
     shift OR shift n
+```
+
+## $
+### get the environment variables or get the argument
+```bash
+    $HOME
+    $PATH
+    $1
+    $?
 ```
 
 ## myshell batchfile
