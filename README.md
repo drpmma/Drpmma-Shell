@@ -27,6 +27,7 @@
 
 ## bg
 ### run jobs in the background
+### explain about background : the process can run in background while the shell can receive user I/O normally.
 ```bash
     bg %id OR bg id
 ```
@@ -53,13 +54,16 @@
 ```
 ## > < >> 
 ### (redirecct)
+### explain redirect : by redirect, user can send the output of command into files or capture input from files.
 ```bash
     COMMAND1 > FILE
     COMMAND2 >> FILE
     COMMAND3 < FILE
 ```
+
 ## |
 ### (pipe)
+### explain pipe : the output of a command can be used as the input of another command
 ```bash
     COMMAND1 | COMMAND2
     COMMAND1 | COMMAND2 | COMMAND3

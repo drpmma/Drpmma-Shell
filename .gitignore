@@ -2,3 +2,4 @@ myshell
 *.o
 *.sh
 /.vscode/
+*.pdf

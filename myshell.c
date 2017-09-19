@@ -31,7 +31,7 @@ void main_loop()
         set_env_pid();                                      // set the $$
 
         if(file_flag == 0)                                  // print the color prompt, including user name and current file path
-            printf(CYAN"[Drpmma's Shell] "LIGHT_BLUE"%s"LIGHT_GRAY":"GREEN"%s> "WHITE, user_name, file_path);
+            printf(CYAN"[Drpmma's Shell] "LIGHT_GRAY":"GREEN"%s> "WHITE, file_path);
 
         line = read_line(&file_flag, fp);                   // read the input
         cmds = split_str(line, COMMAND_SIZE, "|");          // deal the | (pipe)
