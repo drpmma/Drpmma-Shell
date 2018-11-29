@@ -14,6 +14,7 @@
 #include <errno.h>
 #include <dirent.h> 
 #include "job_ctrl.h"
+#include "args.h"
 
 #define FILE_PATH_LENGTH 100
 #define PATH_LENGTH 500

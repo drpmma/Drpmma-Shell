@@ -16,6 +16,7 @@ void main_loop()
     int status = 1;
     int i;
     int file_flag = 0;
+    int cmds_num;
 
     char* cmd_file = getenv("1");                           // get the possible file name
     FILE* fp = fopen(cmd_file, "r");
@@ -37,7 +38,7 @@ void main_loop()
         cmds = split_str(line, COMMAND_SIZE, "|");          // deal the | (pipe)
         for(i = 0; cmds[i] != NULL; i++)
         {
-            args = split_str(cmds[i], ARGUMENT_SIZE, " \t\n");  // deal the space delims
+            args = buildargv(cmds[i]);
             cmd_array[i].mode = check_bg_fg(args);          // set command mode
             cmd_array[i].args = args;                       // args
         }
@@ -83,7 +84,7 @@ void init()
 char* read_line(int* pfile_flag, FILE* fp)
 {
     char *line = NULL;
-    ssize_t bufsize = 0;
+    size_t bufsize = 0;
     char* cmd_name = getenv("0");
     if(strcmp(cmd_name, "myshell") == 0 && fp != NULL)  // if it's running batchfile
     {
@@ -130,6 +131,7 @@ int parse_redirect(char** args, int* pfd_in, int* pfd_out)      // parse redirec
             args[i] = NULL;
         }
     }
+    return 0;
 }
 
 int parse_pipe(struct command* cmd_array, int size)             // parse pipe
@@ -284,7 +286,7 @@ int execute(struct command cmd, int fd_in, int fd_out, int fd_err)      // execu
     if(cmd.args[0] == NULL)
         return 1;
 
-    parse_quote(cmd.args);                                              // parse quote
+    // parse_quote(cmd.args);                                              // parse quote
     parse_var(cmd.args);                                                // parse environment variables
     parse_redirect(cmd.args, &fd_in, &fd_out);                          // parse redirect
 
@@ -585,6 +587,7 @@ int shell_unset(char** args)                        // unset the environment var
 int shell_exec(char** args)                         // substitue the shell by exec
 {
     execvp(args[1], args + 1);
+    return 0;
 }
 
 int shell_help(char** args)                         // display README by more
@@ -593,6 +596,7 @@ int shell_help(char** args)                         // display README by more
     strcat(shell_path, "/README.md");
     char* cmd[] = {"more", shell_path};
     execvp(cmd[0], cmd);
+    return 0;
 }
 
 int shell_exit(char** args)                         // exit
@@ -966,6 +970,7 @@ int test_file(char* arg, int flag)                  // test file
                 }
             }
         }
+        return 0;
     }
 }
 
@@ -998,6 +1003,10 @@ int test_logic(char** args, int flag)               // test logic
         case TEST_NE:                               // not equal
         {
             return num1 != num2;
+        }
+        default:
+        {
+            return 0;
         }
     }
 }
